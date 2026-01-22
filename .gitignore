@@ -1,0 +1,10 @@
+venv/
+Results/
+Data/electricity/raw_data
+Data/weather/raw_data
+
+__pycache__
+*.pyc
+
+uv.lock
+.vscode
