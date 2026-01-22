@@ -4,6 +4,12 @@ class InternalConfig:
     plot_level = 3  # 0 none, 1 data and results, 2 intermediate steps, 3 details
     plot_folder = "Results"
 
+    # Features and regression settings
+    min_number_of_features = 10
+    max_autocorrelation_threshold = 0.8
+    try_all_fitting = False
+    training_days = 365  # number of days used for training vs validation
+
     # Final/processed column names
     colname_time = "Timestamp"
     colname_time_of_day = "TimeOfDay"
@@ -15,15 +21,19 @@ class InternalConfig:
     # Features
     colname_date = "Date"
     colname_day_of_week = "Day_of_week"
-    colname_half_hour_period = "Half_hour_index"
+    colname_period_index = "Half_hour_index"
     colname_month = "Month"
     colname_daily_min_temperature = "Day_min_temperature"
     colname_daily_avg_temperature = "Day_mean_temperature"
     colname_daily_max_temperature = "Day_max_temperature"
-    colname_temperature_below_zero = "Day_mean_temperature_below_zero"
-    colname_temperature_below_five = "Day_mean_temperature_below_five"
-    colname_temperature_below_ten = "Day_mean_temperature_below_ten"
-    colname_temperature_below_fifteen = "Day_mean_temperature_below_fifteen"
+    colname_daily_temperature_below_zero = "Day_mean_temperature_below_zero"
+    colname_daily_temperature_below_five = "Day_mean_temperature_below_five"
+    colname_daily_temperature_below_ten = "Day_mean_temperature_below_ten"
+    colname_daily_temperature_below_fifteen = "Day_mean_temperature_below_fifteen"
+    colname_daily_temperature_above_fifteen = "Day_mean_temperature_above_fifteen"
+    colname_daily_temperature_above_twenty = "Day_mean_temperature_above_twenty"
+    colname_daily_temperature_above_twentyfive = "Day_mean_temperature_above_twentyfive"
+    colname_training_data = "training_row_filter"
 
     # List with all features
     # continuous features
@@ -32,14 +42,17 @@ class InternalConfig:
         colname_daily_min_temperature,
         colname_daily_avg_temperature,
         colname_daily_max_temperature,
-        colname_temperature_below_zero,
-        colname_temperature_below_five,
-        colname_temperature_below_ten,
-        colname_temperature_below_fifteen,
+        colname_daily_temperature_below_zero,
+        colname_daily_temperature_below_five,
+        colname_daily_temperature_below_ten,
+        colname_daily_temperature_below_fifteen,
+        colname_daily_temperature_above_fifteen,
+        colname_daily_temperature_above_twenty,
+        colname_daily_temperature_above_twentyfive,
     ]
     # categorical features
     features_categorical = [
-        colname_half_hour_period,  # integer 0-47, for full time-resolution only
+        colname_period_index,  # integer eg 0-47, for full time-resolution only
         colname_day_of_week,  # integer 1-7
         colname_month,  # integer 1-12
     ]

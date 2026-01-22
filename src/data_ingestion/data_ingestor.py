@@ -45,7 +45,7 @@ def _plot_raw_data(df: pl.DataFrame):
         fig.write_html(InternalConfig.plot_folder + "/data_input.html")
 
 
-def run():
+def run() -> pl.DataFrame:
     # electricity data
     dfe = electricity.run(
         fold=DataConfig.folder_name_electricity,
@@ -77,7 +77,7 @@ def run():
         print(
             f"Not enough data present to continue, {len(dfe)} data point for electricity and {len(dfw)} for weather data found. Terminating now"
         )
-        return
+        return pl.DataFrame()
 
     # join both, left on the weather (ie we drop electricity consumption data for which we don't have weather data)
     # This is so we can train on time periods where there is data for both, and then predict
@@ -93,3 +93,5 @@ def run():
 
     if InternalConfig.plot_level >= 2:
         _plot_raw_data(df=df)
+
+    return df
