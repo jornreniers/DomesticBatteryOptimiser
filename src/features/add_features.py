@@ -96,52 +96,52 @@ def _add_temperature_features(df: pl.LazyFrame) -> pl.LazyFrame:
     """
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) < 0))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
+            pl.when((pl.col(InternalConfig.colname_daily_min_temperature) < 0))
+            .then(pl.col(InternalConfig.colname_daily_min_temperature))
             .otherwise(0.0)
         ).alias(InternalConfig.colname_daily_temperature_below_zero)
     )
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) < 5))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
+            pl.when((pl.col(InternalConfig.colname_daily_min_temperature) < 5))
+            .then(pl.col(InternalConfig.colname_daily_min_temperature))
             .otherwise(5.0)
         ).alias(InternalConfig.colname_daily_temperature_below_five)
     )
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) < 10))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
+            pl.when((pl.col(InternalConfig.colname_daily_min_temperature) < 10))
+            .then(pl.col(InternalConfig.colname_daily_min_temperature))
             .otherwise(10.0)
         ).alias(InternalConfig.colname_daily_temperature_below_ten)
     )
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) < 15))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
+            pl.when((pl.col(InternalConfig.colname_daily_min_temperature) < 15))
+            .then(pl.col(InternalConfig.colname_daily_min_temperature))
             .otherwise(15.0)
         ).alias(InternalConfig.colname_daily_temperature_below_fifteen)
     )
     # and for high temperatures
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) > 15))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
+            pl.when((pl.col(InternalConfig.colname_daily_max_temperature) > 15))
+            .then(pl.col(InternalConfig.colname_daily_max_temperature))
             .otherwise(15.0)
         ).alias(InternalConfig.colname_daily_temperature_above_fifteen)
     )
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) > 20))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
-            .otherwise(15.0)
+            pl.when((pl.col(InternalConfig.colname_daily_max_temperature) > 20))
+            .then(pl.col(InternalConfig.colname_daily_max_temperature))
+            .otherwise(20.0)
         ).alias(InternalConfig.colname_daily_temperature_above_twenty)
     )
     df_day = df_day.with_columns(
         (
-            pl.when((pl.col(InternalConfig.colname_daily_avg_temperature) > 25))
-            .then(pl.col(InternalConfig.colname_daily_avg_temperature))
-            .otherwise(15.0)
+            pl.when((pl.col(InternalConfig.colname_daily_max_temperature) > 25))
+            .then(pl.col(InternalConfig.colname_daily_max_temperature))
+            .otherwise(25.0)
         ).alias(InternalConfig.colname_daily_temperature_above_twentyfive)
     )
 
@@ -168,6 +168,10 @@ def plot_features(df: pd.DataFrame, subfold: str, figname: str):
         # subplot_titles=MLConfig.day_colname_features,
     )
     for i, feature in enumerate(cols):
+        # note that this prints an "illegal value encountered" and produces NaN
+        # if a feature is constant. For instance, if the temperature never exceeded 25
+        # then the feature T_above_25 will have constant values at 25
+        # and then the correlation becomes NaN
         r = np.corrcoef(df[feature], df[InternalConfig.colname_consumption_kwh])
         fig.add_trace(
             go.Scatter(
