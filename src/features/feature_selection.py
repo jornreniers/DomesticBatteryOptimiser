@@ -1,8 +1,12 @@
+from sklearn.ensemble import RandomForestRegressor
 import os
-import polars as pl
 
 from sklearn import linear_model
-from sklearn.feature_selection import RFECV
+from sklearn.feature_selection import (
+    RFECV,
+    SelectKBest,
+    mutual_info_regression,
+)
 from plotly.subplots import make_subplots
 from plotly import graph_objects as go
 
@@ -71,11 +75,47 @@ def _plot_feature_correlation(config: FeatureConfiguration, subfold: str):
     fig3.write_html(subfold + "/feature_auto_correlation_matrix.html")
 
 
-def _select_relevant_features(config: FeatureConfiguration):
+def _select_kbest_features(config: FeatureConfiguration):
+    """
+    Remove features which have very low correlation to y.
+    There are two possible metrics, f_regression which captures only linear dependencies
+    and mutual_info_regression which can capture any type of dependency
+    (r_regression would be another linear-only option)
+    """
     # Use the simple linear least-squared as the metric
     x = config.get_training_data(config.get_features()).to_numpy()
-    y = config.get_training_data(config.get_y_name()).to_numpy()
-    estim = linear_model.LinearRegression()
+    y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
+
+    selector = SelectKBest(
+        score_func=mutual_info_regression, k=InternalConfig.min_number_of_features * 2
+    ).fit(x, y)
+
+    # Process results
+    selected_features = list(
+        selector.get_feature_names_out(input_features=config.get_features())
+    )
+
+    # Remove features. note that we have to copy because
+    # we will be removing elements from the config.get_features()-list
+    # and you cannot iterate over a list while removing elements
+    for feat in config.get_features().copy():
+        if feat not in selected_features:
+            config.remove_feature(feat)
+            print(f"\tKbest is removing feature {feat}")
+    # print(
+    #     f"SelectKbest is keeping {len(selected_features)} features: {selected_features}"
+    # )
+
+
+def _select_relevant_features(config: FeatureConfiguration):
+    """
+    Iteratively remove the least useful features
+    """
+    # Use the simple linear least-squared as the metric
+    x = config.get_training_data(config.get_features()).to_numpy()
+    y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
+    # estim = linear_model.LinearRegression()
+    estim = RandomForestRegressor(n_estimators=50)
 
     # select features by removing them one by one.
     # cross-validation with 5 folds (each using 4/5 of data for training and 1/5 for validation)
@@ -96,22 +136,39 @@ def _select_relevant_features(config: FeatureConfiguration):
         selector.get_feature_names_out(input_features=config.get_features())
     )
 
-    # print which features we removed
-    for feat in config.get_features():
+    # Remove features. note that we have to copy because
+    # we will be removing elements from the config.get_features()-list
+    # and you cannot iterate over a list while removing elements
+    for feat in config.get_features().copy():
         if feat not in selected_features:
             config.remove_feature(feat)
-            print(f"RFECV is removing feature {feat}")
+            print(f"\tRFECV is removing feature {feat}")
+    # print(f"RFECV is keeping {len(selected_features)} features: {selected_features}")
 
 
 def run(config: FeatureConfiguration) -> None:
-    print("Start feature selection")
+    """
+    There are three steps to feature-selection
+    First, we remove features which have almost no correlation with the y-value using selectKbest.
+        We use a metric which captures nonlinear dependencies as well for flexibility
+        Swap to f_regression if you want to reduce the computational cost and/or are mainly looking
+        for linear relationships
+    Secondly, we look at which features are highly auto-correlated to remove co-linear features.
+    Finally, recursively we remove a few more features using cross validation. For this we
+        use a random forest to allow nonlinear interactions. Swap to a simple linearRegression
+        if you want to reduce the computational cost and/or are mainly looking for linear relationships
+    """
 
     if InternalConfig.plot_level >= 2:
         # plot y-value vs each feature
+        print("Start plotting all features")
         subfold = InternalConfig.plot_folder + "/features"
         if not (os.path.exists(subfold)):
             os.makedirs(subfold)
         _plot_feature_correlation(config=config, subfold=subfold)
+        print("Done plotting all features, start selection")
+
+    _select_kbest_features(config=config)
 
     # Remove correlated features
     remover = CorrelatedFeatureRemover(config=config)
