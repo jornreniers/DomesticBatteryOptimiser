@@ -74,3 +74,10 @@ class FeatureConfiguration:
         return self.df.filter(pl.col(InternalConfig.colname_training_data)).select(
             colnames
         )
+
+    def get_training_end_date(self) -> pl.Datetime:
+        return (
+            self.df.filter(pl.col(InternalConfig.colname_training_data))
+            .select(pl.last(InternalConfig.colname_time))
+            .item(row=0, column=0)
+        )

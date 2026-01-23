@@ -9,7 +9,7 @@ from src.features import (
 from src.features.feature_configuration import FeatureConfiguration
 
 
-def run(df: pl.DataFrame) -> tuple[pl.DataFrame, FeatureConfiguration]:
+def run(df: pl.DataFrame) -> FeatureConfiguration:
     """
     Take the dataframe with the raw data, and add columns with features to it.
     the FeatureConfiguration will keep track of which features should be used
@@ -21,7 +21,7 @@ def run(df: pl.DataFrame) -> tuple[pl.DataFrame, FeatureConfiguration]:
     daily_config = FeatureConfiguration(
         df=dfl_day.collect(), colname_y_to_fit=InternalConfig.colname_consumption_kwh
     )
-    df_day = process_features.run(config=daily_config)
+    process_features.run(config=daily_config)
 
     # Filter the data between training and validation data
     daily_config.set_training_data_filter()
@@ -29,4 +29,4 @@ def run(df: pl.DataFrame) -> tuple[pl.DataFrame, FeatureConfiguration]:
     # Select useful features
     feature_selection.run(config=daily_config)
 
-    return df_day, daily_config
+    return daily_config

@@ -30,7 +30,7 @@ def run(df: pl.LazyFrame) -> pl.LazyFrame:
                 "by": InternalConfig.colname_time,
             }
         )
-    )
+    ).sort(by=InternalConfig.colname_time)
 
     # If we take a daily average, some columns have no meaning any more
     # eg period index becomes basically summer vs winter time
