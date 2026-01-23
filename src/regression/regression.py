@@ -1,64 +1,26 @@
-from sklearn import svm, linear_model, gaussian_process, preprocessing
+from sklearn import gaussian_process
 
 from config.InternalConfig import InternalConfig
 from src.features.feature_configuration import FeatureConfiguration
 
-# from src.regression import try_all_linear_regression, try_all_svm, try_other_regressors
 from src.regression.plot_comparison import plot_comparison
 
 
-def _least_squares(config: FeatureConfiguration):
+def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: str):
     """
-    Naive least-squares fit of consumption vs features
-    See https://scikit-learn.org/stable/modules/linear_model.html
+    Fit the consumption with a gaussian process
+    the advantage is that this type of model allows "noise" in measurement data
+    which can reflect uncertainty or random variation.
+    After all, electricity consumption will always depend on random factors
+    (when do you iron, do the laundry, use the oven to bake a cake, etc).
+    We want to avoid overfitting the data we have, so by setting the correct
+    noise threshold in the gaussian process, it will aim to fit the average
+    expected consumption for the conditions of that day.
+
+    A second advantage is that it gives some uncertainty estimate,
+    however, this should not be fully relied upon depending on the amount
+    of training data.
     """
-
-    x = config.get_training_data(config.get_features()).to_numpy()
-    y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
-    training_end_date = config.get_training_end_date()
-
-    # Fit the training data, and predict all data
-    reg = linear_model.LinearRegression().fit(x, y)
-    y_pred = reg.predict(config.df.select(config.get_features()).to_numpy())
-
-    plot_comparison(
-        config.df,
-        config.df.select(InternalConfig.colname_consumption_kwh).to_numpy().flatten(),
-        y_pred,
-        "least_squares_fit",
-        x_training_endpoint=training_end_date,
-    )
-
-
-def _svr(config: FeatureConfiguration):
-    x = config.get_training_data(config.get_features()).to_numpy()
-    y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
-    training_end_date = config.get_training_end_date()
-
-    # Rescale the features
-    scaler = preprocessing.StandardScaler().fit(x)
-    xt_scaled = scaler.transform(x)
-
-    # Fit with radial basis functions
-    reg = svm.SVR(max_iter=10000, kernel="rbf", C=100)
-    reg.fit(xt_scaled, y)
-
-    # predict
-    xall = config.df.select(config.get_features()).to_numpy()
-    scaler = preprocessing.StandardScaler().fit(xall)
-    x_scaled = scaler.transform(xall)
-    y_pred = reg.predict(x_scaled)
-
-    plot_comparison(
-        config.df,
-        config.df.select(InternalConfig.colname_consumption_kwh).to_numpy().flatten(),
-        y_pred,
-        "SVR_rbf_C100",
-        x_training_endpoint=training_end_date,
-    )
-
-
-def _gaussian_process_regression(config: FeatureConfiguration):
     # gaussian processes: https://scikit-learn.org/stable/modules/gaussian_process.html
 
     x = config.get_training_data(config.get_features()).to_numpy()
@@ -67,30 +29,28 @@ def _gaussian_process_regression(config: FeatureConfiguration):
 
     # Fit the training data, and predict all data
     noise = -1
-    reg = gaussian_process.GaussianProcessRegressor(
-        normalize_y=True, alpha=pow(10, noise)
-    ).fit(x, y)
-    y_pred, y_std = reg.predict(
-        config.df.select(config.get_features()).to_numpy(), return_std=True
-    )
+    for noise in [-1, -0.5, 0, 0.5]:
+        reg = gaussian_process.GaussianProcessRegressor(
+            normalize_y=True, alpha=pow(10, noise)
+        ).fit(x, y)
+        y_pred, y_std = reg.predict(
+            config.df.select(config.get_features()).to_numpy(), return_std=True
+        )
 
-    plot_comparison(
-        config.df,
-        config.df.select(InternalConfig.colname_consumption_kwh).to_numpy().flatten(),
-        y_pred,
-        f"gaussian_process_alpha{noise}",
-        y_std=y_std,
-        x_training_endpoint=training_end_date,
-    )
+        plot_comparison(
+            config.df,
+            config.df.select(InternalConfig.colname_consumption_kwh)
+            .to_numpy()
+            .flatten(),
+            y_pred,
+            figname_prefix + f"gaussian_process_alpha{noise}",
+            y_std=y_std,
+            x_training_endpoint=training_end_date,
+        )
 
 
-def run(config: FeatureConfiguration):
-    _least_squares(config=config)
-    _svr(config=config)
-    _gaussian_process_regression(config=config)
+def run(config: FeatureConfiguration, figname_prefix: str):
+    _gaussian_process_regression(config=config, figname_prefix=figname_prefix)
 
-    # # Regression
-    # if InternalConfig.try_all_fitting:
-    #     try_all_linear_regression.run(df=df)
-    #     try_all_svm.run(df=df)
-    #     try_other_regressors.run(df=df)
+    # TODO next steps:
+    #   score fitting and compute actual error vs what it thinks the std is

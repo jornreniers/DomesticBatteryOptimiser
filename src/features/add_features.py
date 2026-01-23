@@ -36,8 +36,8 @@ def _add_date_features(df: pl.LazyFrame) -> pl.LazyFrame:
     df = df.with_columns(
         (
             (
-                pl.col(InternalConfig.colname_time_of_day).dt.hour() * 60
-                + pl.col(InternalConfig.colname_time_of_day).dt.minute()
+                pl.col(InternalConfig.colname_time_of_day).dt.hour().cast(pl.Int64) * 60
+                + pl.col(InternalConfig.colname_time_of_day).dt.minute().cast(pl.Int64)
             )
             // InternalConfig.average_time_step
         ).alias(InternalConfig.colname_period_index)

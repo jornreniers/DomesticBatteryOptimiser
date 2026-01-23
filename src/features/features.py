@@ -9,7 +9,7 @@ from src.features import (
 from src.features.feature_configuration import FeatureConfiguration
 
 
-def run(df: pl.DataFrame) -> FeatureConfiguration:
+def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
     """
     Take the dataframe with the raw data, and add columns with features to it.
     the FeatureConfiguration will keep track of which features should be used
@@ -17,16 +17,26 @@ def run(df: pl.DataFrame) -> FeatureConfiguration:
 
     # Add all features and prepare them for learning
     dfl = add_features.run(df=df.lazy())
+
+    # Compute daily consumption
     dfl_day = daily_averages.run(df=dfl)
     daily_config = FeatureConfiguration(
-        df=dfl_day.collect(), colname_y_to_fit=InternalConfig.colname_consumption_kwh
+        df=dfl_day.collect(),
+        colname_y_to_fit=InternalConfig.colname_consumption_kwh,
+        fullTimeFit=False,
     )
     process_features.run(config=daily_config)
-
-    # Filter the data between training and validation data
     daily_config.set_training_data_filter()
+    feature_selection.run(config=daily_config, figname_prefix="daily_")
 
-    # Select useful features
-    feature_selection.run(config=daily_config)
+    # Compute full consumption
+    full_config = FeatureConfiguration(
+        df=dfl.collect(),
+        colname_y_to_fit=InternalConfig.colname_consumption_kwh,
+        fullTimeFit=True,
+    )
+    process_features.run(config=full_config)
+    full_config.set_training_data_filter()
+    feature_selection.run(config=full_config, figname_prefix="fullTime_")
 
-    return daily_config
+    return daily_config, full_config

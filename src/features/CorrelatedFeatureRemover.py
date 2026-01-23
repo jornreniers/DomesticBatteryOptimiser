@@ -178,11 +178,12 @@ class CorrelatedFeatureRemover:
         Returns:
             List of feature names that remain after removing correlated features
         """
+        if self._config.is_full_fit():
+            k = InternalConfig.min_number_of_features_fullTimeFit
+        else:
+            k = InternalConfig.min_number_of_features_dayFit
 
-        while (
-            len(self._config.get_features())
-            > max(2, InternalConfig.min_number_of_features)
-        ) and (
+        while (len(self._config.get_features()) > max(2, k)) and (
             np.max(self._correlation_matrix.max())
             > InternalConfig.max_autocorrelation_threshold
         ):

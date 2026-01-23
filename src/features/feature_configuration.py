@@ -11,10 +11,11 @@ class FeatureConfiguration:
     We allow public access to the dataframe (so other parts of the code can add columns)
     """
 
-    def __init__(self, df: pl.DataFrame, colname_y_to_fit: str):
+    def __init__(self, df: pl.DataFrame, colname_y_to_fit: str, fullTimeFit: bool):
         self.df = df
         self._feature_names = []
         self._y_name = colname_y_to_fit
+        self._fullTimeFit = fullTimeFit
 
     def add_feature(self, feat: str):
         if feat in self.df.columns:
@@ -32,6 +33,9 @@ class FeatureConfiguration:
 
     def get_y_name(self) -> str:
         return self._y_name
+
+    def is_full_fit(self) -> bool:
+        return self._fullTimeFit
 
     def set_training_data_filter(self):
         """

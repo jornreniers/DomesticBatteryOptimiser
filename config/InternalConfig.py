@@ -5,7 +5,8 @@ class InternalConfig:
     plot_folder = "Results"
 
     # Features and regression settings
-    min_number_of_features = 10
+    min_number_of_features_dayFit = 10
+    min_number_of_features_fullTimeFit = 25
     max_autocorrelation_threshold = 0.8
     try_all_fitting = False
     training_days = 365  # number of days used for training vs validation

@@ -1,7 +1,6 @@
 from sklearn.ensemble import RandomForestRegressor
 import os
 
-from sklearn import linear_model
 from sklearn.feature_selection import (
     RFECV,
     SelectKBest,
@@ -15,7 +14,9 @@ from src.features.CorrelatedFeatureRemover import CorrelatedFeatureRemover
 from src.features.feature_configuration import FeatureConfiguration
 
 
-def _plot_feature_correlation(config: FeatureConfiguration, subfold: str):
+def _plot_feature_correlation(
+    config: FeatureConfiguration, subfold: str, figname_prefix: str
+):
     """
     investigate auto-correlation between features
 
@@ -28,9 +29,10 @@ def _plot_feature_correlation(config: FeatureConfiguration, subfold: str):
     # Compute the correlation matrix
     corr_matrix = df.corr()
 
-    # plot
-    if InternalConfig.plot_level >= 3:
-        # this figure takes a long time to make because it are a lot of graphs
+    # plot consumption vs each feature
+    # this figure takes a long time to make because it are a lot of graphs
+    # don't plot for the full time fit because it is too much data
+    if (InternalConfig.plot_level >= 3) and (not config.is_full_fit()):
         fig2 = make_subplots(
             rows=len(df.columns),
             cols=len(df.columns),
@@ -52,7 +54,9 @@ def _plot_feature_correlation(config: FeatureConfiguration, subfold: str):
                 fig2.update_xaxes(title_text=feature2, row=len(df.columns), col=j + 1)
                 fig2.update_yaxes(title_text=feature, row=i + 1, col=1)
         fig2.update_layout(title_text="Correlation between features")
-        fig2.write_html(subfold + "/feature_auto_correlation.html")
+        fig2.write_html(
+            subfold + "/" + figname_prefix + "feature_auto_correlation.html"
+        )
 
     # plot summary heatmap with just the correlations
     fig3 = go.Figure(
@@ -72,7 +76,9 @@ def _plot_feature_correlation(config: FeatureConfiguration, subfold: str):
         xaxis_title="",
         yaxis_title="",
     )
-    fig3.write_html(subfold + "/feature_auto_correlation_matrix.html")
+    fig3.write_html(
+        subfold + "/" + figname_prefix + "feature_auto_correlation_matrix.html"
+    )
 
 
 def _select_kbest_features(config: FeatureConfiguration):
@@ -86,9 +92,11 @@ def _select_kbest_features(config: FeatureConfiguration):
     x = config.get_training_data(config.get_features()).to_numpy()
     y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
 
-    selector = SelectKBest(
-        score_func=mutual_info_regression, k=InternalConfig.min_number_of_features * 2
-    ).fit(x, y)
+    if config.is_full_fit():
+        k = InternalConfig.min_number_of_features_fullTimeFit
+    else:
+        k = InternalConfig.min_number_of_features_dayFit
+    selector = SelectKBest(score_func=mutual_info_regression, k=k * 2).fit(x, y)
 
     # Process results
     selected_features = list(
@@ -123,11 +131,15 @@ def _select_relevant_features(config: FeatureConfiguration):
     # to the "optimal" set. Eg if you set it to 2 and all folds select the same 2
     # features it will select 2. However, if different folds select different features
     # then RFECV will combine them and select more than 2
+    if config.is_full_fit():
+        k = InternalConfig.min_number_of_features_fullTimeFit
+    else:
+        k = InternalConfig.min_number_of_features_dayFit
     selector = RFECV(
         estim,
         step=1,
         cv=5,
-        min_features_to_select=InternalConfig.min_number_of_features,
+        min_features_to_select=k,
     )
     selector = selector.fit(x, y)
 
@@ -146,7 +158,7 @@ def _select_relevant_features(config: FeatureConfiguration):
     # print(f"RFECV is keeping {len(selected_features)} features: {selected_features}")
 
 
-def run(config: FeatureConfiguration) -> None:
+def run(config: FeatureConfiguration, figname_prefix: str) -> None:
     """
     There are three steps to feature-selection
     First, we remove features which have almost no correlation with the y-value using selectKbest.
@@ -165,7 +177,9 @@ def run(config: FeatureConfiguration) -> None:
         subfold = InternalConfig.plot_folder + "/features"
         if not (os.path.exists(subfold)):
             os.makedirs(subfold)
-        _plot_feature_correlation(config=config, subfold=subfold)
+        _plot_feature_correlation(
+            config=config, subfold=subfold, figname_prefix=figname_prefix
+        )
         print("Done plotting all features, start selection")
 
     _select_kbest_features(config=config)
