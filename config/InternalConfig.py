@@ -60,5 +60,9 @@ class InternalConfig:
 
     all_features = features_continuous + features_categorical
 
+    # output columns
+    colname_ydata = "y_data"
+    colname_yfit = "y_fitted"
+
     # values that will be completed by the code
     average_time_step = 0

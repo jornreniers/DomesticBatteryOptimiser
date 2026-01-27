@@ -1,9 +1,12 @@
+import polars as pl
+
 from sklearn import gaussian_process
 
 from config.InternalConfig import InternalConfig
 from src.features.feature_configuration import FeatureConfiguration
 
 from src.regression.plot_comparison import plot_comparison
+from src.regression.score_regression import score_regression
 
 
 def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: str):
@@ -47,6 +50,24 @@ def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: s
             y_std=y_std,
             x_training_endpoint=training_end_date,
         )
+
+        # Score how well the fit went
+        prefix = figname_prefix + f"gaussian_process_alpha{noise}_"
+        df = config.df.select(
+            InternalConfig.colname_time,
+            InternalConfig.colname_consumption_kwh,
+            InternalConfig.colname_training_data,
+        ).rename({InternalConfig.colname_consumption_kwh: InternalConfig.colname_ydata})
+        df = df.with_columns(pl.Series(y_pred).alias(InternalConfig.colname_yfit))
+
+        err_t, err_v = score_regression(df=df, figname_prefix=prefix)
+
+        print(
+            f"RMSE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
+        )
+
+        # TODO change to relative error
+        #   think about what if y is 0
 
 
 def run(config: FeatureConfiguration, figname_prefix: str):
