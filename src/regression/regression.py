@@ -66,9 +66,6 @@ def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: s
             f"RMSE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
         )
 
-        # TODO change to relative error
-        #   think about what if y is 0
-
 
 def run(config: FeatureConfiguration, figname_prefix: str):
     _gaussian_process_regression(config=config, figname_prefix=figname_prefix)

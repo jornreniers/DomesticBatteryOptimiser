@@ -35,8 +35,8 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
         colname_y_to_fit=InternalConfig.colname_consumption_kwh,
         fullTimeFit=True,
     )
-    process_features.run(config=full_config)
-    full_config.set_training_data_filter()
-    feature_selection.run(config=full_config, figname_prefix="fullTime_")
+    # process_features.run(config=full_config)
+    # full_config.set_training_data_filter()
+    # feature_selection.run(config=full_config, figname_prefix="fullTime_")
 
     return daily_config, full_config
