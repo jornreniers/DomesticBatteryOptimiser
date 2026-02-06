@@ -99,6 +99,10 @@ def score_regression(df: pl.DataFrame, figname_prefix: str) -> tuple[float, floa
     returns:
         rmse on training data
         rmse on validation data
+
+    TODO combine absolue and relative error in WMAPE: sum(abs(Y_data - Y_fitted)) / sum(Y_data)
+    see https://en.wikipedia.org/wiki/Mean_absolute_percentage_error#WMAPE
+    and https://en.wikipedia.org/wiki/Mean_absolute_percentage_error#Issues
     """
 
     # compute error columns for training (t) and validation (v)

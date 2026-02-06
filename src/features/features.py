@@ -5,6 +5,7 @@ from src.features import (
     daily_averages,
     process_features,
     feature_selection,
+    data_analyser,
 )
 from src.features.feature_configuration import FeatureConfiguration
 
@@ -25,9 +26,9 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
         colname_y_to_fit=InternalConfig.colname_consumption_kwh,
         fullTimeFit=False,
     )
-    process_features.run(config=daily_config)
-    daily_config.set_training_data_filter()
-    feature_selection.run(config=daily_config, figname_prefix="daily_")
+    # process_features.run(config=daily_config)
+    # daily_config.set_training_data_filter()
+    # feature_selection.run(config=daily_config, figname_prefix="daily_")
 
     # Compute full consumption
     full_config = FeatureConfiguration(
@@ -35,8 +36,13 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
         colname_y_to_fit=InternalConfig.colname_consumption_kwh,
         fullTimeFit=True,
     )
-    # process_features.run(config=full_config)
-    # full_config.set_training_data_filter()
-    # feature_selection.run(config=full_config, figname_prefix="fullTime_")
+    # # process_features.run(config=full_config)
+    # # full_config.set_training_data_filter()
+    # # feature_selection.run(config=full_config, figname_prefix="fullTime_")
+
+    # Plot full-resolution consumption vs various metrics
+    # needs to be done after adding features because
+    # we need things like month or daily min T
+    data_analyser.run(df=dfl.collect())
 
     return daily_config, full_config
