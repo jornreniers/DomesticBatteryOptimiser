@@ -130,32 +130,44 @@ def plot_comparison(
                 col=1,
             )
 
-        fig.add_trace(
-            go.Scatter(
-                x=t,
-                y=dfp[InternalConfig.colname_daily_min_temperature],
-                name="minimum temperature [Celcius]",
-            ),
-            row=2,
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=t,
-                y=dfp[InternalConfig.colname_daily_avg_temperature],
-                name="average temperature [Celcius]",
-            ),
-            row=2,
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=t,
-                y=dfp[InternalConfig.colname_daily_max_temperature],
-                name="maximum temperature [Celcius]",
-            ),
-            row=2,
-            col=1,
-        )
+        try:
+            fig.add_trace(
+                go.Scatter(
+                    x=t,
+                    y=dfp[InternalConfig.colname_daily_min_temperature],
+                    name="minimum temperature [Celcius]",
+                ),
+                row=2,
+                col=1,
+            )
+        except KeyError:
+            # skip because it isn't present in the dataframe
+            pass
+        try:
+            fig.add_trace(
+                go.Scatter(
+                    x=t,
+                    y=dfp[InternalConfig.colname_daily_avg_temperature],
+                    name="average temperature [Celcius]",
+                ),
+                row=2,
+                col=1,
+            )
+        except KeyError:
+            # skip because it isn't present in the dataframe
+            pass
+        try:
+            fig.add_trace(
+                go.Scatter(
+                    x=t,
+                    y=dfp[InternalConfig.colname_daily_max_temperature],
+                    name="maximum temperature [Celcius]",
+                ),
+                row=2,
+                col=1,
+            )
+        except KeyError:
+            # skip because it isn't present in the dataframe
+            pass
 
         fig.write_html(subfold + "/" + figname + ".html")

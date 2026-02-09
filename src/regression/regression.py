@@ -32,7 +32,7 @@ def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: s
 
     # Fit the training data, and predict all data
     noise = -1
-    for noise in [-1, -0.5, 0, 0.5]:
+    for noise in [-1]:  # [-1, -0.5, 0, 0.5]:
         reg = gaussian_process.GaussianProcessRegressor(
             normalize_y=True, alpha=pow(10, noise)
         ).fit(x, y)
@@ -63,12 +63,21 @@ def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: s
         err_t, err_v = score_regression(df=df, figname_prefix=prefix)
 
         print(
-            f"RMSE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
+            f"MAPE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
         )
+        df.write_csv(InternalConfig.plot_folder + "/fitting/" + prefix + "result.csv")
 
 
 def run(config: FeatureConfiguration, figname_prefix: str):
     _gaussian_process_regression(config=config, figname_prefix=figname_prefix)
 
     # TODO next steps:
-    #   score fitting and compute actual error vs what it thinks the std is
+    #   for full time forecasting, plot summary time-dependent graphs
+    #       refer back to original metrics (see full_resolution_data_analyser)
+    #       eg try plotting two distributions on the same graph
+    #           red/magenta for demand mean/std
+    #           green/blue for forecast
+    #       then we can compare "average day" with "average forecast"
+    #       and maybe below it make a plot with the error distribution
+    # I have saved the csv so I don't need to recompute the fit every single time
+    # when trying to write code to analyse the result

@@ -1,17 +1,20 @@
 from src.data_ingestion import data_ingestor
 from src.features import features
 from src.regression import regression
-from src.regression.fit_full_time import test_fit
 
 
 def main():
+    # read data
     df = data_ingestor.run()
-    config_day, config_full = features.run(df=df)
-    # regression.run(config=config_day, figname_prefix="daily_")
-    # # regression.run(config=config_full, figname_prefix="fullTime_")
 
-    # # Predict fulltime based on daily estimate only
-    # test_fit(config_day=config_day, df_full=df.lazy())
+    # select features
+    config_day, config_full = features.run(df=df)
+
+    # train the models to fit training data & compute scores on validation data
+    print("Start fitting daily total consumption")
+    regression.run(config=config_day, figname_prefix="daily_")
+    print("Start fitting full time resolution data")
+    regression.run(config=config_full, figname_prefix="fullTime_")
 
     # TODO compare forecast for daily demand with sum of full-time-resolution forecast
 
