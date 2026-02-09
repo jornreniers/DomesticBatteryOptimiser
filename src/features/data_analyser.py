@@ -254,25 +254,12 @@ def _add_buckets_for_T_and_total_consumption(df: pl.DataFrame):
     return df, t_bin_edges, cons_edges
 
 
-def _plotname_bucketed_value(edges: np.ndarray, val: int) -> str:
-    """
-    Silly function to make subplot titles saying what bucket the value is in.
-    ie from the (integer) listing which bucket we are in, we return a string
-    with the edges of this bucket
-    """
-    if val == 0:
-        return f" < {edges[0]}"
-    elif val == len(edges):
-        return f" > {edges[-1]}"
-    else:
-        return f"between {edges[val - 1]} and {edges[val]}"
-
-
 def _groupby_metric_and_plot(
     df: pl.DataFrame,
     metric_name: str,
     yname: str,
     title_function: Callable[[int, pl.DataFrame], str],
+    ylabel_text: str,
 ):
     # compute the average day vs a given metric.
     dfg = (
@@ -294,11 +281,11 @@ def _groupby_metric_and_plot(
     )
 
     # plot settings
-    feature_values = dfg.select(metric_name).unique().to_numpy().flatten()
-    number_of_features = len(feature_values)
+    metric_values = dfg.select(metric_name).unique().to_numpy().flatten()
+    number_of_options = len(metric_values)
     nrows = 3
-    ncols = math.ceil(number_of_features / nrows)
-    subplot_titles = [title_function(x, dfg) for x in feature_values]
+    ncols = math.ceil(number_of_options / nrows)
+    subplot_titles = [title_function(x, dfg) for x in metric_values]
 
     # plot
     subfold = InternalConfig.plot_folder + "/features"
@@ -308,10 +295,11 @@ def _groupby_metric_and_plot(
         shared_xaxes=True,
         shared_yaxes=True,
         subplot_titles=subplot_titles,
+        y_title=ylabel_text,
     )
     std_avg = 0.0
-    for i in range(number_of_features):
-        dff = dfg.filter(pl.col(metric_name) == feature_values[i])
+    for i in range(number_of_options):
+        dff = dfg.filter(pl.col(metric_name) == metric_values[i])
         _plot_statistics(
             df=dff,
             name_x=InternalConfig.colname_time_of_day,
@@ -336,7 +324,21 @@ def _groupby_metric_and_plot(
     )
 
     # Return the average (across all options for the metric) relative (wrt mean) standard deviation
-    return std_avg / number_of_features, number_of_features
+    return std_avg / number_of_options, number_of_options
+
+
+def _generate_subplot_title_bucketed_value(edges: np.ndarray, val: int) -> str:
+    """
+    Silly function to make subplot titles saying what bucket the value is in.
+    ie from the (integer) listing which bucket we are in, we return a string
+    with the edges of this bucket
+    """
+    if val == 0:
+        return f" < {edges[0]}"
+    elif val == len(edges):
+        return f" > {edges[-1]}"
+    else:
+        return f"between {edges[val - 1]} and {edges[val]}"
 
 
 def _generate_subplot_title_for_month(x: int, dfg: pl.DataFrame) -> str:
@@ -346,13 +348,13 @@ def _generate_subplot_title_for_month(x: int, dfg: pl.DataFrame) -> str:
 def _generate_subplot_title_for_temperature(
     x: int, dfg: pl.DataFrame, t_bin_edges: np.ndarray
 ) -> str:
-    return f"daily min temperature {_plotname_bucketed_value(edges=t_bin_edges, val=x)} degrees and has {dfg.filter(pl.col('day_min_temperature_bucket') == x).select('Count').item(0, 0)} days"
+    return f"daily min temperature {_generate_subplot_title_bucketed_value(edges=t_bin_edges, val=x)} degrees and has {dfg.filter(pl.col('day_min_temperature_bucket') == x).select('Count').item(0, 0)} days"
 
 
 def _generate_subplot_title_for_demand(
     x: int, dfg: pl.DataFrame, cons_edges: np.ndarray
 ) -> str:
-    return f"daily consumption {_plotname_bucketed_value(edges=cons_edges, val=x)} kWh and has {dfg.filter(pl.col('total_day_consumption_bucket') == x).select('Count').item(0, 0)} days"
+    return f"daily consumption {_generate_subplot_title_bucketed_value(edges=cons_edges, val=x)} kWh and has {dfg.filter(pl.col('total_day_consumption_bucket') == x).select('Count').item(0, 0)} days"
 
 
 def plot_average_weekday_vs_features(df: pl.DataFrame):
@@ -374,129 +376,57 @@ def plot_average_weekday_vs_features(df: pl.DataFrame):
     # compute which bucket of daily min temperature and total daily consumption each day is in
     df, t_bin_edges, cons_edges = _add_buckets_for_T_and_total_consumption(df=df)
 
-    # TODO redo this function with relative demand instead of absolute.
-    # then delete next function.
-
-    # month
-    stdrel, nf = _groupby_metric_and_plot(
-        df=df,
-        metric_name=InternalConfig.colname_month,
-        yname=InternalConfig.colname_consumption_kwh,
-        title_function=_generate_subplot_title_for_month,
-    )
-    print(f"Metric month has average std {stdrel} spread over {nf} options")
-
-    # daily min temperature
-    stdrel, nf = _groupby_metric_and_plot(
-        df=df,
-        metric_name="day_min_temperature_bucket",
-        yname=InternalConfig.colname_consumption_kwh,
-        title_function=lambda x, dfg: _generate_subplot_title_for_temperature(
-            x, dfg, t_bin_edges=t_bin_edges
-        ),
-    )
-    print(
-        f"Metric daily minimum temperature has average std {stdrel} spread over {nf} options"
-    )
-
-    # daily total demand
-    stdrel, nf = _groupby_metric_and_plot(
-        df=df,
-        metric_name="total_day_consumption_bucket",
-        yname=InternalConfig.colname_consumption_kwh,
-        title_function=lambda x, dfg: _generate_subplot_title_for_demand(
-            x, dfg, cons_edges=cons_edges
-        ),
-    )
-    print(
-        f"Metric total daily demand has average std {stdrel} spread over {nf} options"
-    )
-
-
-def plot_average_weekday_relative_demand(df: pl.DataFrame):
-    """
-    Based on the previous three functions, we get a fairly good idea
-    if we look at the demand on the average weekday for different values
-    of total demand (std ~ 0.58*mean_value).
-
-    Here we look at the relative demand, ie demand / total_daily_demand.
-    This would take away the different buckets for total daily demand
-    and instead we just need to forecast the relative trend,
-    and then combine that with the forecasted total daily demand.
-    """
-
-    # compute total daily consumption
-    df_day = df.group_by(by=InternalConfig.colname_date).agg(
-        pl.col(InternalConfig.colname_consumption_kwh)
-        .sum()
-        .alias("total_daily_consumption"),
-        pl.col(InternalConfig.colname_date).first(),
-    )
-    df = df.join(other=df_day, on=InternalConfig.colname_date)
+    # compute relative consumption (consumption / total_daily_consumption)
+    # total daily consumption was computed by _add_buckets_for_T_and_total_consumption
     df = df.with_columns(
         relative_consumption=pl.col(InternalConfig.colname_consumption_kwh)
         / pl.col("total_daily_consumption")
         * 100.0
     )
-    df = df.with_columns(weekend=pl.col(InternalConfig.colname_day_of_week) >= 6)
 
-    subfold = InternalConfig.plot_folder + "/features"
-    fig = make_subplots(
-        rows=1,
-        cols=2,
-        shared_xaxes=True,
-        shared_yaxes=True,
-        subplot_titles=[
-            "demand as fraction of total daily demand on average weekday",
-            "demand as fraction of total daily demand on average weekend day",
-        ],
-        y_title="Fraction of total daily demand [%]",
-    )
-
-    dfg = (
-        df.group_by(["weekend", InternalConfig.colname_period_index])
-        .agg(
-            pl.col(InternalConfig.colname_time_of_day).mean(),
-            pl.col("relative_consumption").mean().alias("Average_consumption"),
-            pl.col("relative_consumption").std().alias("Std_consumption"),
-            pl.col("relative_consumption").min().alias("Min_consumption"),
-            pl.col("relative_consumption").max().alias("Max_consumption"),
+    # Make graphs both for absolute and relative demand
+    ynames = [InternalConfig.colname_consumption_kwh, "relative_consumption"]
+    ylabels = ["Absolute demand [kWh]", "Fraction of total daily demand [%]"]
+    for yn, yl in zip(ynames, ylabels):
+        # month
+        stdrel, nf = _groupby_metric_and_plot(
+            df=df,
+            metric_name=InternalConfig.colname_month,
+            yname=yn,
+            title_function=_generate_subplot_title_for_month,
+            ylabel_text=yl,
         )
-        .sort(["weekend", InternalConfig.colname_period_index])
-    )
+        print(
+            f"for {yn}, metric month has average std {stdrel} spread over {nf} options"
+        )
 
-    # Print the relative std
-    dfg = dfg.with_columns(
-        std_rel=pl.col("Std_consumption") / pl.col("Average_consumption")
-    )
-    print(dfg.group_by("weekend").agg(pl.col("std_rel").mean()))
+        # daily min temperature
+        stdrel, nf = _groupby_metric_and_plot(
+            df=df,
+            metric_name="day_min_temperature_bucket",
+            yname=yn,
+            title_function=lambda x, dfg: _generate_subplot_title_for_temperature(
+                x, dfg, t_bin_edges=t_bin_edges
+            ),
+            ylabel_text=yl,
+        )
+        print(
+            f"for {yn}, metric daily minimum temperature has average std {stdrel} spread over {nf} options"
+        )
 
-    # average weekday
-    _plot_statistics(
-        df=dfg.filter(~pl.col("weekend")),
-        name_x=InternalConfig.colname_time_of_day,
-        name_y="Average_consumption",
-        name_ystd="Std_consumption",
-        name_ymin="Min_consumption",
-        name_ymax="Max_consumption",
-        fig=fig,
-        r=1,
-        c=1,
-    )
-    _plot_statistics(
-        df=dfg.filter(pl.col("weekend")),
-        name_x=InternalConfig.colname_time_of_day,
-        name_y="Average_consumption",
-        name_ystd="Std_consumption",
-        name_ymin="Min_consumption",
-        name_ymax="Max_consumption",
-        fig=fig,
-        r=1,
-        c=2,
-    )
-    # fig.update_yaxis(title_text="label", row=x, col=y)
-
-    fig.write_html(subfold + "/average_daily_pattern_relative.html")
+        # daily total demand
+        stdrel, nf = _groupby_metric_and_plot(
+            df=df,
+            metric_name="total_day_consumption_bucket",
+            yname=yn,
+            title_function=lambda x, dfg: _generate_subplot_title_for_demand(
+                x, dfg, cons_edges=cons_edges
+            ),
+            ylabel_text=yl,
+        )
+        print(
+            f"for {yn}, metric total daily demand has average std {stdrel} spread over {nf} options"
+        )
 
 
 def run(df: pl.DataFrame):
@@ -504,4 +434,3 @@ def run(df: pl.DataFrame):
 
     plot_average_day_of_week(df=df)
     plot_average_weekday_vs_features(df=df)
-    plot_average_weekday_relative_demand(df=df)
