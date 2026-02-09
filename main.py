@@ -13,6 +13,8 @@ def main():
     # # Predict fulltime based on daily estimate only
     # test_fit(config_day=config_day, df_full=df.lazy())
 
+    # TODO compare forecast for daily demand with sum of full-time-resolution forecast
+
 
 if __name__ == "__main__":
     main()

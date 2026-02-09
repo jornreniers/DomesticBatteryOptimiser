@@ -1,4 +1,5 @@
 import math
+import os
 import numpy as np
 import polars as pl
 import plotly.graph_objects as go
@@ -7,6 +8,7 @@ from plotly.subplots import make_subplots
 from collections.abc import Callable
 
 from config.InternalConfig import InternalConfig
+from .plot_consumption_vs_features import plot_consumption_vs_features
 
 
 def _plot_statistics(
@@ -20,6 +22,11 @@ def _plot_statistics(
     r: int,
     c: int,
 ):
+    """
+    Plot consumption vs time of day (ie with time dependency)
+    We allow to plot a distribution with mean, std, min/max
+    so we can eg plot the consumption on each monday in the dataset.
+    """
     t = df.select(name_x).to_numpy().flatten()
     # line with average
     fig.add_trace(
@@ -96,8 +103,13 @@ def _plot_statistics(
 
 def plot_average_day_of_week(df: pl.DataFrame):
     """
-    Over all data, compute the average per day of the week.
-    We plot the average, std and min/max per day of the week
+    We plot each day of the week, and then grouped into
+    weekdays and weekend days. We show the average, std and min/max.
+
+    This confirms that all week days are broadly similar, ie we can
+    group Mon, Tue, Wed, Thu and Fri together with only minimal effect
+    on the standard deviation.
+    Similarly, both weekend days are very similar so we can group them together.
     """
     subfold = InternalConfig.plot_folder + "/features"
     fig = make_subplots(
@@ -154,9 +166,10 @@ def plot_average_day_of_week(df: pl.DataFrame):
         )
 
     # compute weekend vs weekday
-    df = df.with_columns(weekend=pl.col(InternalConfig.colname_day_of_week) >= 6)
     dfg = (
-        df.group_by(["weekend", InternalConfig.colname_period_index])
+        df.group_by(
+            [InternalConfig.colname_weekend, InternalConfig.colname_period_index]
+        )
         .agg(
             pl.col(InternalConfig.colname_time_of_day).mean(),
             pl.col(InternalConfig.colname_consumption_kwh)
@@ -172,11 +185,11 @@ def plot_average_day_of_week(df: pl.DataFrame):
             .max()
             .alias("Max_consumption"),
         )
-        .sort(["weekend", InternalConfig.colname_period_index])
+        .sort([InternalConfig.colname_weekend, InternalConfig.colname_period_index])
     )
     # average weekday
     _plot_statistics(
-        df=dfg.filter(~pl.col("weekend")),
+        df=dfg.filter(~pl.col(InternalConfig.colname_weekend)),
         name_x=InternalConfig.colname_time_of_day,
         name_y="Average_consumption",
         name_ystd="Std_consumption",
@@ -187,7 +200,7 @@ def plot_average_day_of_week(df: pl.DataFrame):
         c=2,
     )
     _plot_statistics(
-        df=dfg.filter(pl.col("weekend")),
+        df=dfg.filter(pl.col(InternalConfig.colname_weekend)),
         name_x=InternalConfig.colname_time_of_day,
         name_y="Average_consumption",
         name_ystd="Std_consumption",
@@ -225,15 +238,6 @@ def _add_buckets_for_T_and_total_consumption(df: pl.DataFrame):
     t_bin_edges = range(-5, 35, 5)
     cons_edges = range(5, 50, 5)
 
-    # compute total daily consumption
-    df_day = df.group_by(by=InternalConfig.colname_date).agg(
-        pl.col(InternalConfig.colname_consumption_kwh)
-        .sum()
-        .alias("total_daily_consumption"),
-        pl.col(InternalConfig.colname_date).first(),
-    )
-    df = df.join(other=df_day, on=InternalConfig.colname_date)
-
     # compute buckets
     df = df.with_columns(
         day_min_temperature_bucket=np.digitize(
@@ -246,7 +250,7 @@ def _add_buckets_for_T_and_total_consumption(df: pl.DataFrame):
 
     df = df.with_columns(
         total_day_consumption_bucket=np.digitize(
-            x=df.select("total_daily_consumption").to_numpy().flatten(),
+            x=df.select(InternalConfig.colname_daily_consumption).to_numpy().flatten(),
             bins=cons_edges,
         )
     )
@@ -361,26 +365,32 @@ def plot_average_weekday_vs_features(df: pl.DataFrame):
     """
     Plot average weekday demand as function of three key metrics:
     month, daily min temperature and total daily consumption.
+    Note that daily min T and total consumption are both bucketed in groups
+    of 5 (5 degrees and 5 kWh) to generate discrete numbers.
 
     We use all weekdays (Mon-Fri) because plot_average_day_of_week showed
     there was not a huge amount of difference between them.
 
     The goal is to find a metric with the most narrow standard deviation.
+    Month is not a very good metric since it has many options and still wide std
+    When looking at total consumption, minimum temperature is better, and daily
+    consumpion is best. However, minimum T would be preferable since when forecasting
+    we don't know what the daily consumption would be, so we introduce two forecasting
+    error (what is total consumption & what is the pattern).
 
-    Note that daily min T and total consumption are both bucketed in groups
-    of 5 (5 degrees and 5 kWh) to generate discrete numbers.
+    Looking at total or relative demand makes not a huge amount of difference. The reason
+    is that the total demand is highly correlated with the min temperature.
     """
     # consider just weekdays for now
-    df = df.filter(pl.col(InternalConfig.colname_day_of_week) < 6)
+    df = df.filter(~pl.col(InternalConfig.colname_weekend))
 
     # compute which bucket of daily min temperature and total daily consumption each day is in
     df, t_bin_edges, cons_edges = _add_buckets_for_T_and_total_consumption(df=df)
 
     # compute relative consumption (consumption / total_daily_consumption)
-    # total daily consumption was computed by _add_buckets_for_T_and_total_consumption
     df = df.with_columns(
         relative_consumption=pl.col(InternalConfig.colname_consumption_kwh)
-        / pl.col("total_daily_consumption")
+        / pl.col(InternalConfig.colname_daily_consumption)
         * 100.0
     )
 
@@ -430,7 +440,40 @@ def plot_average_weekday_vs_features(df: pl.DataFrame):
 
 
 def run(df: pl.DataFrame):
-    """ """
+    """
+    This section plots graphs to analyse the consumption at full time resolution.
+    We need to investigate what the patterns are.
 
+    First we look whether different days of the week are different or whether they can be grouped together.
+    This finds that we can group them into week days and weekend days with only minimal effect on the standard
+    deviation.
+
+    Secondly, we look wether there are constant pattern across months, outside temperature, or total daily demand.
+    As part of that, we also look at the relative demand, ie consumption at time t as fraction of total consumption
+    that day.
+    The best metric is daily minimum temperature, and we can try to forecast both absolute or relative consumption,
+    there isn't a huge amount of difference.
+
+    TODO predict absolute full-time-resolution demand and check how good it is at getting the total daily one
+    compare that with the forecast for daily demand full stop.
+    """
+    # TODO
+
+    # scatterplot of consumption vs feature value
+    if InternalConfig.plot_level >= 2:
+        # plot y-value vs each feature
+        subfold = InternalConfig.plot_folder + "/features"
+        if not (os.path.exists(subfold)):
+            os.makedirs(subfold)
+        dfp = df.to_pandas()
+        plot_consumption_vs_features(
+            df=dfp,
+            subfold=subfold,
+            figname="consumption_vs_features_full_time_resolution",
+            list_of_features=InternalConfig.features_fullResolution_forecast,
+        )
+
+    # distibution plot of consumption vs time of day
+    # where consumption is grouped by various metrics (eg all Mondays)
     plot_average_day_of_week(df=df)
     plot_average_weekday_vs_features(df=df)

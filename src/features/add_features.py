@@ -1,12 +1,4 @@
-import math
-import os
-
 import polars as pl
-import pandas as pd
-import numpy as np
-
-from plotly.subplots import make_subplots
-from plotly import graph_objects as go
 
 from config.InternalConfig import InternalConfig
 
@@ -42,6 +34,11 @@ def _add_date_features(df: pl.LazyFrame) -> pl.LazyFrame:
             // InternalConfig.average_time_step
         ).alias(InternalConfig.colname_period_index)
     )
+    df = df.with_columns(
+        (pl.col(InternalConfig.colname_day_of_week) >= 6).alias(
+            InternalConfig.colname_weekend
+        )
+    )
 
     return df
 
@@ -64,9 +61,9 @@ def _add_temperature_features(df: pl.LazyFrame) -> pl.LazyFrame:
     from one day to the next.
     """
 
-    # compute daily min/max/avg temperatures
+    # compute daily min/max/avg temperatures and total daily demand
     df_day = (
-        df.group_by(by=InternalConfig.colname_date)
+        df.group_by(InternalConfig.colname_date)
         .agg(
             pl.col(InternalConfig.colname_temperature_dry).mean(),
             pl.col(InternalConfig.colname_temperature_dry)
@@ -75,10 +72,12 @@ def _add_temperature_features(df: pl.LazyFrame) -> pl.LazyFrame:
             pl.col(InternalConfig.colname_temperature_dry)
             .max()
             .alias(InternalConfig.colname_daily_max_temperature),
+            pl.col(InternalConfig.colname_consumption_kwh)
+            .sum()
+            .alias(InternalConfig.colname_daily_consumption),
         )
         .rename(
             {
-                "by": InternalConfig.colname_date,
                 InternalConfig.colname_temperature_dry: InternalConfig.colname_daily_avg_temperature,
             }
         )
@@ -153,57 +152,9 @@ def _add_temperature_features(df: pl.LazyFrame) -> pl.LazyFrame:
     return df
 
 
-def plot_features(df: pd.DataFrame, subfold: str, figname: str):
-    # find which features are present in the dataframe
-    # eg for daily averages we dropped a few
-    cols = list(filter(lambda x: x in InternalConfig.all_features, df.columns))
-
-    ncol = 3
-    nrow = math.ceil(len(cols) / ncol)
-
-    # plot value vs each feature
-    fig = make_subplots(
-        rows=nrow,
-        cols=ncol,
-        # subplot_titles=MLConfig.day_colname_features,
-    )
-    for i, feature in enumerate(cols):
-        # note that this prints an "illegal value encountered" and produces NaN
-        # if a feature is constant. For instance, if the temperature never exceeded 25
-        # then the feature T_above_25 will have constant values at 25
-        # and then the correlation becomes NaN
-        r = np.corrcoef(df[feature], df[InternalConfig.colname_consumption_kwh])
-        fig.add_trace(
-            go.Scatter(
-                x=df[feature],
-                y=df[InternalConfig.colname_consumption_kwh],
-                name=f"correlation {r[0, 1]:.3f}",
-                mode="markers",
-            ),
-            row=math.floor(i / ncol) + 1,  # 111, 222, 333
-            col=(i % ncol) + 1,  # 123, 123, 123
-        )
-        fig.update_xaxes(
-            title_text=feature, row=math.floor(i / ncol) + 1, col=(i % ncol) + 1
-        )
-    fig.update_layout(title_text="Consumption versus each feature")
-    fig.write_html(subfold + "/" + figname + ".html")
-
-
 def run(df: pl.LazyFrame) -> pl.LazyFrame:
     # Add the features
     df = _add_date_features(df=df)
     df = _add_temperature_features(df=df)
-
-    # plot
-    if InternalConfig.plot_level >= 2:
-        # plot y-value vs each feature
-        subfold = InternalConfig.plot_folder + "/features"
-        if not (os.path.exists(subfold)):
-            os.makedirs(subfold)
-        dfp = df.collect().to_pandas()
-        plot_features(
-            df=dfp, subfold=subfold, figname="all_features_full_time_resolution"
-        )
 
     return df

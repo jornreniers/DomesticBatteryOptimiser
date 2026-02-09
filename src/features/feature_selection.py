@@ -93,10 +93,10 @@ def _select_kbest_features(config: FeatureConfiguration):
     y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
 
     if config.is_full_fit():
-        k = InternalConfig.min_number_of_features_fullTimeFit
+        k = InternalConfig.fullResolution_min_number_of_features_kbest
     else:
-        k = InternalConfig.min_number_of_features_dayFit
-    selector = SelectKBest(score_func=mutual_info_regression, k=k * 2).fit(x, y)
+        k = InternalConfig.daily_min_number_of_features_kbest
+    selector = SelectKBest(score_func=mutual_info_regression, k=k).fit(x, y)
 
     # Process results
     selected_features = list(
@@ -132,9 +132,9 @@ def _select_relevant_features(config: FeatureConfiguration):
     # features it will select 2. However, if different folds select different features
     # then RFECV will combine them and select more than 2
     if config.is_full_fit():
-        k = InternalConfig.min_number_of_features_fullTimeFit
+        k = InternalConfig.fullResolution_min_number_of_features_rfecv
     else:
-        k = InternalConfig.min_number_of_features_dayFit
+        k = InternalConfig.daily_min_number_of_features_rfecv
     selector = RFECV(
         estim,
         step=1,

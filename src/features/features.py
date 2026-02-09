@@ -6,9 +6,51 @@ from src.features import (
     daily_averages,
     process_features,
     feature_selection,
-    data_analyser,
+    full_resolution_data_analyser,
 )
 from src.features.feature_configuration import FeatureConfiguration
+
+
+def feature_selection_for_daily_totals(dfl: pl.LazyFrame) -> FeatureConfiguration:
+    """
+    Perform feature selection for when we want to forecast the total daily consumption.
+    """
+
+    # Groupby date so we get daily totals
+    dfl_day = daily_averages.run(df=dfl)
+
+    # Set up the configuration and manually
+    # filter out unneeded features (keep those defined in InternalConfig.features_daily_forecast)
+    daily_config = FeatureConfiguration(
+        df=cast(pl.DataFrame, dfl_day.collect()),
+        colname_y_to_fit=InternalConfig.colname_consumption_kwh,
+        fullTimeFit=False,
+        list_of_features=InternalConfig.features_daily_forecast,
+    )
+    process_features.run(config=daily_config)
+    daily_config.set_training_data_filter()
+    feature_selection.run(config=daily_config, figname_prefix="daily_")
+
+    return daily_config
+
+
+def feature_selection_for_full_time_resolution(
+    df: pl.DataFrame,
+) -> FeatureConfiguration:
+    """
+    Perform feature selection for when we want to forecast the consumption at each point in time.
+    """
+    full_config = FeatureConfiguration(
+        df=df,
+        colname_y_to_fit=InternalConfig.colname_consumption_kwh,
+        fullTimeFit=True,
+        list_of_features=InternalConfig.features_fullResolution_forecast,
+    )
+    process_features.run(config=full_config)
+    full_config.set_training_data_filter()
+    feature_selection.run(config=full_config, figname_prefix="fullTime_")
+
+    return full_config
 
 
 def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
@@ -26,29 +68,14 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
     # Plot full-time-resolution consumption vs various metrics
     # useful to explore the data and visually inspect the effect
     # of different features and metrics
-    data_analyser.run(df=df_with_features)
+    full_resolution_data_analyser.run(df=df_with_features)
 
     # Select features to predict total daily consumption
-    dfl_day = daily_averages.run(df=dfl)
-    daily_config = FeatureConfiguration(
-        df=cast(pl.DataFrame, dfl_day.collect()),
-        colname_y_to_fit=InternalConfig.colname_consumption_kwh,
-        fullTimeFit=False,
-    )
-    process_features.run(config=daily_config)
-    daily_config.set_training_data_filter()
-    feature_selection.run(config=daily_config, figname_prefix="daily_")
+    daily_config = feature_selection_for_daily_totals(dfl=dfl)
 
-    # Select features to predict full-time-resolution consumption
-    # TODO reconsider features, we don't want to redo the work from total daily consumption
-    # TODO use insights from data_analyser
-    full_config = FeatureConfiguration(
-        df=df_with_features,
-        colname_y_to_fit=InternalConfig.colname_consumption_kwh,
-        fullTimeFit=True,
-    )
-    process_features.run(config=full_config)
-    full_config.set_training_data_filter()
-    feature_selection.run(config=full_config, figname_prefix="fullTime_")
+    print("Run full time resolution analysis")
+
+    # select features to predict full time resolution
+    full_config = feature_selection_for_full_time_resolution(df=df_with_features)
 
     return daily_config, full_config
