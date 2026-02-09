@@ -81,3 +81,11 @@ def run(config: FeatureConfiguration, figname_prefix: str):
     #       and maybe below it make a plot with the error distribution
     # I have saved the csv so I don't need to recompute the fit every single time
     # when trying to write code to analyse the result
+    # TODO maybe also when computing the smape error, remove points where both y and yfit are small
+    #   now a lot of the "200% error"is eg when demand is 0.0x and forecast is 0.0y (eg 0.06 and 0.04)
+    #   so it looks like the forecast is bad, but in practice we are very close
+    #   we don't really care about those type of "200% errors" but we do care about
+    #   eg demand is 0.0x and forecast is 0.y (ie demand is 10 times larger than real value)
+    #       smape gives same score to both.
+    #   maybe use a weighted one??? but then we end up at an absolute error.....
+    #       THINK WHAT IS BEST
