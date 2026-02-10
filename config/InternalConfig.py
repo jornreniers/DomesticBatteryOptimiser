@@ -1,7 +1,7 @@
 class InternalConfig:
     # Settings
     data_cleaning_max_timestep_minutes = 60.0  # consider data is missing if the time interval between two datapoints exceeds this value
-    plot_level = 3  # 0 none, 1 data and results, 2 intermediate steps, 3 details
+    plot_level = 2  # 0 none, 1 data and results, 2 intermediate steps, 3 details
     plot_folder = "Results"
 
     # Features and regression settings
@@ -11,6 +11,8 @@ class InternalConfig:
     fullResolution_min_number_of_features_rfecv = 35
     max_autocorrelation_threshold = 0.8
     training_days = 365  # number of days used for training vs validation
+    lognoise_minimum = -5  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
+    lognoise_maximim = 1
 
     # Column names
     colname_time = "Timestamp"

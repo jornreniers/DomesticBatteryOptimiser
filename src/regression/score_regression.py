@@ -90,7 +90,9 @@ def _plot_scoring(
         )
 
 
-def score_regression(df: pl.DataFrame, figname_prefix: str) -> tuple[float, float]:
+def score_regression(
+    df: pl.DataFrame, figname_prefix: str, ploton: bool
+) -> tuple[float, float]:
     """
     dataframe with the following columns:
         InternalConfig.colname_ydata: the measured y-values
@@ -129,7 +131,7 @@ def score_regression(df: pl.DataFrame, figname_prefix: str) -> tuple[float, floa
     dflt = dfl.filter(pl.col(InternalConfig.colname_training_data))
     dflv = dfl.filter(~pl.col(InternalConfig.colname_training_data))
 
-    if InternalConfig.plot_level >= 2:
+    if ploton:
         subfold = InternalConfig.plot_folder + "/fitting"
         if not (os.path.exists(subfold)):
             os.makedirs(subfold)

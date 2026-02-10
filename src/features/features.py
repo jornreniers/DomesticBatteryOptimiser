@@ -59,6 +59,8 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
     the FeatureConfiguration will keep track of which features should be used
     """
 
+    print("Start feature selection")
+
     # Add all features and prepare them for learning
     dfl = add_features.run(df=df.lazy())
     # Collect can return a df or a InProcessQuery (streaming implementation)
@@ -72,8 +74,6 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
 
     # Select features to predict total daily consumption
     daily_config = feature_selection_for_daily_totals(dfl=dfl)
-
-    print("Run full time resolution analysis")
 
     # select features to predict full time resolution
     full_config = feature_selection_for_full_time_resolution(df=df_with_features)
