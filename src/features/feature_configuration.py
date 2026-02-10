@@ -18,7 +18,7 @@ class FeatureConfiguration:
         fullTimeFit: bool,
         list_of_features: list[str],
     ):
-        self.df = df
+        self.df_orig = df  # keep a copy of the full original dataframe
         self._feature_names = []
         self._y_name = colname_y_to_fit
         self._fullTimeFit = fullTimeFit

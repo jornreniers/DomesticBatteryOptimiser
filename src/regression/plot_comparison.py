@@ -18,6 +18,7 @@ def plot_comparison(
 ):
     """
     Plot comparison between actual and predicted consumption along with some selected features.
+    We make a graph with the full time dependency
 
     Args:
         df_day: DataFrame with daily data

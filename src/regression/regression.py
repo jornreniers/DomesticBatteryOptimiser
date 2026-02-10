@@ -7,6 +7,7 @@ from src.features.feature_configuration import FeatureConfiguration
 
 from src.regression.plot_comparison import plot_comparison
 from src.regression.score_regression import score_regression
+from src.regression import plot_full_time_resolution_summary
 
 
 def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: str):
@@ -59,12 +60,27 @@ def _gaussian_process_regression(config: FeatureConfiguration, figname_prefix: s
             InternalConfig.colname_training_data,
         ).rename({InternalConfig.colname_consumption_kwh: InternalConfig.colname_ydata})
         df = df.with_columns(pl.Series(y_pred).alias(InternalConfig.colname_yfit))
-
         err_t, err_v = score_regression(df=df, figname_prefix=prefix)
-
         print(
             f"MAPE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
         )
+
+        # plot demand (measured + forecasted) vs time of day for validation data
+        # don't plot if we are forecasting total daily consumption
+        if config.is_full_fit():
+            # get the full data again
+            df2 = df.join(
+                other=config.df_orig,
+                on=InternalConfig.colname_time,
+                how="left",
+                coalesce=True,
+            )
+
+            plot_full_time_resolution_summary.run(
+                df=df2.filter(~pl.col(InternalConfig.colname_training_data)),
+                figname_prefix=prefix,
+            )
+
         df.write_csv(InternalConfig.plot_folder + "/fitting/" + prefix + "result.csv")
 
 
