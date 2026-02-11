@@ -177,8 +177,24 @@ def run(
 
     logger.info("Start regression")
 
-    err, noise, forecaster = tune_hyperparam(
-        config=config, figname_prefix=figname_prefix
-    )
+    if InternalConfig.lognoise_minimum == InternalConfig.lognoise_maximim:
+        err, forecaster = _gaussian_process_regression(
+            config=config,
+            figname_prefix=figname_prefix,
+            noise=InternalConfig.lognoise_minimum,
+        )
+        noise = InternalConfig.lognoise_minimum
+        if InternalConfig.plot_level >= 2:
+            prefix = figname_prefix + f"gaussian_process_optimal_alpha{noise}_"
+            score_and_plot_trained_model(
+                config=config,
+                forecaster=forecaster,
+                figname_prefix=prefix,
+                ploton=True,
+            )
+    else:
+        err, noise, forecaster = tune_hyperparam(
+            config=config, figname_prefix=figname_prefix
+        )
 
     return err, noise, forecaster

@@ -1,5 +1,6 @@
 import os
 import logging
+import math
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import (
@@ -95,10 +96,16 @@ def _select_kbest_features(config: FeatureConfiguration):
     x = config.get_training_data(config.get_features()).to_numpy()
     y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
 
+    (a, number_of_features) = x.shape
     if config.is_full_fit():
-        k = InternalConfig.fullResolution_min_number_of_features_kbest
+        k = math.ceil(
+            InternalConfig.fullResolution_fraction_of_features_to_keep_kbest
+            * number_of_features
+        )
     else:
-        k = InternalConfig.daily_min_number_of_features_kbest
+        k = math.ceil(
+            InternalConfig.daily_fraction_of_features_to_keep_kbest * number_of_features
+        )
     selector = SelectKBest(score_func=mutual_info_regression, k=k).fit(x, y)
 
     # Process results
@@ -134,10 +141,16 @@ def _select_relevant_features(config: FeatureConfiguration):
     # to the "optimal" set. Eg if you set it to 2 and all folds select the same 2
     # features it will select 2. However, if different folds select different features
     # then RFECV will combine them and select more than 2
+    (a, number_of_features) = x.shape
     if config.is_full_fit():
-        k = InternalConfig.fullResolution_min_number_of_features_rfecv
+        k = math.ceil(
+            InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
+            * number_of_features
+        )
     else:
-        k = InternalConfig.daily_min_number_of_features_rfecv
+        k = math.ceil(
+            InternalConfig.daily_fraction_of_features_to_keep_rfecv * number_of_features
+        )
     selector = RFECV(
         estim,
         step=1,

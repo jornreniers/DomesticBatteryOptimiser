@@ -5,14 +5,26 @@ class InternalConfig:
     plot_folder = "Results"
 
     # Features and regression settings
-    daily_min_number_of_features_kbest = 20  # use kbest to select up to 20 features
-    daily_min_number_of_features_rfecv = 10  # use RFECV to select up to 10 features, must be <= kbest since it is called afterward
-    fullResolution_min_number_of_features_kbest = 45
-    fullResolution_min_number_of_features_rfecv = 35
-    max_autocorrelation_threshold = 0.8
-    training_days = 365  # number of days used for training vs validation
-    lognoise_minimum = -5  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
-    lognoise_maximim = 1
+    # specify the number of features (as fraction of the total number of features)
+    # you want to keep after the two stages of feature selection
+    # the value for xx_rfecv must be <= the value of _kbest since it is applied after
+    # Note that we ask for a fraction because the actual number depends strongly
+    # on which categorical features were included since they are exploded into dummies.
+    daily_fraction_of_features_to_keep_kbest = (
+        0.8  # use kbest to select up to 20 features
+    )
+    daily_fraction_of_features_to_keep_rfecv = 0.5  # use RFECV to select up to 10 features, must be <= kbest since it is called afterward
+    fullResolution_fraction_of_features_to_keep_kbest = 0.5
+    fullResolution_fraction_of_features_to_keep_rfecv = 0.25
+    max_autocorrelation_threshold = 0.8  # autocorrelation between features that we allow, above this value, features are removed
+    # Noise assumptions for the guassian process to fit consumption
+    # provided as a power of 10, eg -1 means we assume the error in the value is 10^-1, ie 0.1 kWh
+    # If you provide a range, we do a grid search to find the best value
+    # If min and max are the same value, we use that value
+    lognoise_minimum = -1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
+    lognoise_maximim = -1
+    # number of days used for training vs validation
+    training_days = 365
 
     # Column names
     colname_time = "Timestamp"
@@ -44,6 +56,7 @@ class InternalConfig:
     # Feature selection
     # This is a first-step manual selection to speed up computation
     # The results are based on the graphs made the feature-selection scripts.
+    # If you set the values to None, we do a search. Otherwise we use the values provided
     features_daily_forecast = [
         colname_daily_min_temperature,
         colname_daily_avg_temperature,
@@ -99,8 +112,6 @@ class InternalConfig:
         colname_month,  # integer 1-12
         colname_weekend,  # boolean true or false
     ]
-    #
-    # all_features = features_continuous + features_categorical
 
     # values that will be completed by the code
     average_time_step = 0

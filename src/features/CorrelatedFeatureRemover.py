@@ -1,4 +1,5 @@
 import logging
+import math
 import numpy as np
 import polars as pl
 from sklearn import linear_model
@@ -182,10 +183,17 @@ class CorrelatedFeatureRemover:
         Returns:
             List of feature names that remain after removing correlated features
         """
+        number_of_features = len(self._config.get_features())
         if self._config.is_full_fit():
-            k = InternalConfig.fullResolution_min_number_of_features_rfecv
+            k = math.ceil(
+                InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
+                * number_of_features
+            )
         else:
-            k = InternalConfig.daily_min_number_of_features_rfecv
+            k = math.ceil(
+                InternalConfig.daily_fraction_of_features_to_keep_rfecv
+                * number_of_features
+            )
 
         while (len(self._config.get_features()) > max(2, k)) and (
             np.max(self._correlation_matrix.max())
