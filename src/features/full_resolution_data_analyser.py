@@ -1,4 +1,5 @@
 import math
+import logging
 import os
 import numpy as np
 import polars as pl
@@ -9,6 +10,9 @@ from collections.abc import Callable
 
 from config.InternalConfig import InternalConfig
 from .plot_consumption_vs_features import plot_consumption_vs_features
+
+
+logger = logging.getLogger()
 
 
 def _plot_statistics(
@@ -321,7 +325,7 @@ def _groupby_metric_and_plot(
         if stdi is not None:
             std_avg = std_avg + stdi
 
-        # print(f"\t{titles[i]} has average std is {stdi}")
+        # logger.debug(f"\t{titles[i]} has average std is {stdi}")
 
     fig.write_html(
         subfold + f"/average_weekday_pattern_of_{yname}_vs_{metric_name}.html"
@@ -406,7 +410,7 @@ def plot_average_weekday_vs_features(df: pl.DataFrame):
             title_function=_generate_subplot_title_for_month,
             ylabel_text=yl,
         )
-        print(
+        logger.debug(
             f"for {yn}, metric month has average std {stdrel} spread over {nf} options"
         )
 
@@ -420,7 +424,7 @@ def plot_average_weekday_vs_features(df: pl.DataFrame):
             ),
             ylabel_text=yl,
         )
-        print(
+        logger.debug(
             f"for {yn}, metric daily minimum temperature has average std {stdrel} spread over {nf} options"
         )
 
@@ -434,7 +438,7 @@ def plot_average_weekday_vs_features(df: pl.DataFrame):
             ),
             ylabel_text=yl,
         )
-        print(
+        logger.debug(
             f"for {yn}, metric total daily demand has average std {stdrel} spread over {nf} options"
         )
 

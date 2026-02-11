@@ -1,4 +1,6 @@
 import os
+import logging
+
 import polars as pl
 from plotly import graph_objects as go
 from plotly.subplots import make_subplots
@@ -6,6 +8,8 @@ from plotly.subplots import make_subplots
 from config.InternalConfig import InternalConfig
 from config.DataConfig import DataConfig
 from src.data_ingestion import electricity, weather
+
+logger = logging.getLogger()
 
 
 def _plot_raw_data(df: pl.DataFrame):
@@ -48,7 +52,7 @@ def _plot_raw_data(df: pl.DataFrame):
 def _combine_data(dfe: pl.DataFrame, dfw: pl.DataFrame) -> pl.DataFrame:
     # Validate there is enough data to continue
     if (len(dfe) == 0) or (len(dfw) == 0):
-        print(
+        logger.error(
             f"Not enough data present to continue, {len(dfe)} data point for electricity and {len(dfw)} for weather data found. Terminating now"
         )
         return pl.DataFrame()

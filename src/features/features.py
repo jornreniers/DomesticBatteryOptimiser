@@ -1,6 +1,9 @@
-from config.InternalConfig import InternalConfig
+import logging
+
 import polars as pl
 from typing import cast
+
+from config.InternalConfig import InternalConfig
 from src.features import (
     add_features,
     daily_averages,
@@ -9,6 +12,8 @@ from src.features import (
     full_resolution_data_analyser,
 )
 from src.features.feature_configuration import FeatureConfiguration
+
+logger = logging.getLogger()
 
 
 def feature_selection_for_daily_totals(dfl: pl.LazyFrame) -> FeatureConfiguration:
@@ -58,8 +63,7 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
     Take the dataframe with the raw data, and add columns with features to it.
     the FeatureConfiguration will keep track of which features should be used
     """
-
-    print("Start feature selection")
+    logger.info("Start feature selection")
 
     # Add all features and prepare them for learning
     dfl = add_features.run(df=df.lazy())

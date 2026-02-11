@@ -1,6 +1,7 @@
 import requests
 import os
 import time
+import logging
 import numpy as np
 
 from bs4 import BeautifulSoup
@@ -9,6 +10,8 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 from config.DataConfig import DataConfig
+
+logger = logging.getLogger()
 
 """
 This file is made with AI.
@@ -28,11 +31,11 @@ def _download_file(url, save_dir) -> int:
 
         # Skip if file already exists
         if os.path.exists(filepath):
-            # print(f"Skipping (already exists): {filename}")
+            # logger.debug(f"Skipping (already exists): {filename}")
             return 0
 
         # Download with streaming
-        print(f"\t\t Downloading: {filename}")
+        logger.debug(f"\t\t Downloading: {filename}")
         response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status()
 
@@ -51,13 +54,13 @@ def _download_file(url, save_dir) -> int:
                         downloaded += len(chunk)
                         # Simple progress indicator
                         # percent = (downloaded / total_size) * 100
-                        # print(f"\t Progress: {percent:.1f}%", end="\r")
+                        # logger.debug(f"\t Progress: {percent:.1f}%", end="\r")
 
-        # print(f"Completed: {filename}")
+        # logger.debug(f"Completed: {filename}")
         return 1
 
     except Exception as e:
-        print(f"\t Error downloading {url}: {str(e)}")
+        logger.warning(f"\t Error downloading {url}: {str(e)}")
         return -1
 
 
@@ -82,7 +85,7 @@ def _get_file_links(base_url):
         return links
 
     except Exception as e:
-        print(f"\t Error fetching directory listing: {str(e)}")
+        logger.warning(f"\t Error fetching directory listing: {str(e)}")
         return []
 
 
@@ -100,15 +103,15 @@ def _download_data(save_dir: str):
         DataConfig.weather_start_year, DataConfig.weather_end_year + 1, 1
     ):
         url = BASE_URL + "/" + str(year) + "/"
-        print(f"Downloading data from: {url}\n")
+        logger.debug(f"Downloading data from: {url}\n")
 
         # Get list of files
         file_links = _get_file_links(url)
-        print(f"\t Found {len(file_links)} files\n")
+        logger.debug(f"\t Found {len(file_links)} files\n")
 
         # Download each file
         for i, url in enumerate(file_links, 1):
-            print(f"\t Progress for {year}: [{i}/{len(file_links)}]")
+            logger.debug(f"\t Progress for {year}: [{i}/{len(file_links)}]")
             res = _download_file(url, save_dir)
             if res == 1:
                 successful += 1
@@ -120,13 +123,13 @@ def _download_data(save_dir: str):
                 skipped += 1
 
     # Summary
-    print("\n" + "=" * 50)
-    print("Download Summary:")
-    print(f"   Skipped: {skipped}")
-    print(f"   Successful: {successful}")
-    print(f"   Failed: {failed}")
-    print(f"   Saved to: {os.path.abspath(save_dir)}")
-    print("=" * 50)
+    logger.info("\n" + "=" * 50)
+    logger.info("Download Summary:")
+    logger.info(f"   Skipped: {skipped}")
+    logger.info(f"   Successful: {successful}")
+    logger.info(f"   Failed: {failed}")
+    logger.info(f"   Saved to: {os.path.abspath(save_dir)}")
+    logger.info("=" * 50)
 
 
 def _should_run(last_run_file: str):

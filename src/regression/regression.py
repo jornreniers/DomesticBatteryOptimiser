@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import polars as pl
 
@@ -9,6 +11,8 @@ from src.features.feature_configuration import FeatureConfiguration
 from src.regression.plot_comparison import plot_comparison
 from src.regression.score_regression import score_regression
 from src.regression import plot_full_time_resolution_summary
+
+logger = logging.getLogger()
 
 
 def score_and_plot_trained_model(
@@ -118,7 +122,7 @@ def _gaussian_process_regression(
         figname_prefix=prefix,
         ploton=InternalConfig.plot_level >= 3,
     )
-    print(
+    logger.debug(
         f"MAPE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
     )
 
@@ -131,6 +135,9 @@ def tune_hyperparam(
     """
     Find the value of alpha that minimises the error between forecast and data
     in the validation data set.
+
+    This could be done with SKlearn's GridSearchCV in the future
+    https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
     """
     alpha_power_range = np.linspace(
         InternalConfig.lognoise_minimum, InternalConfig.lognoise_maximim, 10
@@ -147,7 +154,7 @@ def tune_hyperparam(
             alpha = ap
             forecaster = fi
 
-    print(
+    logger.info(
         f"The optimal fit has noise exponent {alpha}, resulting in an error of {errmin}"
     )
 
@@ -164,10 +171,14 @@ def tune_hyperparam(
     return errmin, alpha, forecaster
 
 
-def run(config: FeatureConfiguration, figname_prefix: str):
+def run(
+    config: FeatureConfiguration, figname_prefix: str
+) -> tuple[float, float, gaussian_process.GaussianProcessRegressor]:
 
-    print("Start regression")
+    logger.info("Start regression")
 
     err, noise, forecaster = tune_hyperparam(
         config=config, figname_prefix=figname_prefix
     )
+
+    return err, noise, forecaster

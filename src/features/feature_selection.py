@@ -1,6 +1,7 @@
-from sklearn.ensemble import RandomForestRegressor
 import os
+import logging
 
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import (
     RFECV,
     SelectKBest,
@@ -12,6 +13,8 @@ from plotly import graph_objects as go
 from config.InternalConfig import InternalConfig
 from src.features.CorrelatedFeatureRemover import CorrelatedFeatureRemover
 from src.features.feature_configuration import FeatureConfiguration
+
+logger = logging.getLogger()
 
 
 def _plot_feature_correlation(
@@ -109,8 +112,8 @@ def _select_kbest_features(config: FeatureConfiguration):
     for feat in config.get_features().copy():
         if feat not in selected_features:
             config.remove_feature(feat)
-            print(f"\tKbest is removing feature {feat}")
-    # print(
+            logger.debug(f"\tKbest is removing feature {feat}")
+    # logger.debug(
     #     f"SelectKbest is keeping {len(selected_features)} features: {selected_features}"
     # )
 
@@ -154,8 +157,8 @@ def _select_relevant_features(config: FeatureConfiguration):
     for feat in config.get_features().copy():
         if feat not in selected_features:
             config.remove_feature(feat)
-            print(f"\tRFECV is removing feature {feat}")
-    # print(f"RFECV is keeping {len(selected_features)} features: {selected_features}")
+            logger.debug(f"\tRFECV is removing feature {feat}")
+    # logger.debug(f"RFECV is keeping {len(selected_features)} features: {selected_features}")
 
 
 def run(config: FeatureConfiguration, figname_prefix: str) -> None:
@@ -173,14 +176,12 @@ def run(config: FeatureConfiguration, figname_prefix: str) -> None:
 
     if InternalConfig.plot_level >= 2:
         # plot y-value vs each feature
-        print("Start plotting all features")
         subfold = InternalConfig.plot_folder + "/features"
         if not (os.path.exists(subfold)):
             os.makedirs(subfold)
         _plot_feature_correlation(
             config=config, subfold=subfold, figname_prefix=figname_prefix
         )
-        print("Done plotting all features, start selection")
 
     _select_kbest_features(config=config)
 
@@ -191,6 +192,6 @@ def run(config: FeatureConfiguration, figname_prefix: str) -> None:
     # From the remaining one, remove less relevant one using scikits functions
     _select_relevant_features(config=config)
 
-    print(
+    logger.info(
         f"We are keeping {len(config.get_features())} features: {config.get_features()}"
     )
