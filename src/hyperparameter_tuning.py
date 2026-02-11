@@ -107,7 +107,7 @@ def tune_hyper_params_fullTimeResolution():
                 InternalConfig.features_categorical + InternalConfig.features_continuous
             )
             InternalConfig.features_fullResolution_forecast.remove(
-                "Total_daily_consumption_rescaled"
+                InternalConfig.colname_daily_consumption
             )
 
         # how many features to remove at which stage
