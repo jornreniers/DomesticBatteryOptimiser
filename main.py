@@ -1,16 +1,38 @@
 import logging
 
 from src.hyperparameter_tuning import tune_hyper_params_fullTimeResolution
+from src.data_ingestion import data_ingestor
+from src.features import features
+from src.regression import regression
 
 logger = logging.getLogger()
+
+
+def run_daily_total():
+    # read data
+    df = data_ingestor.run()
+
+    # select features
+    config_day = features.run_daily_total(df=df)
+
+    # train the models to fit training data & compute scores on validation data
+    regression.run(config=config_day, figname_prefix="daily_")
+
+
+def run_full_time_resolution():
+    # read data
+    df = data_ingestor.run()
+
+    # select features
+    config_full = features.run_full_time_resolution(df=df)
+
+    # train the models to fit training data & compute scores on validation data
+    regression.run(config=config_full, figname_prefix="fullTime_")
 
 
 def main():
 
     # TODO
-    # use internalConfig to signal whether to use fixed hyperparams or optimise.
-    #   eg alpha is already if min == max then fixed, otherwise search
-    #   do others as None (if None we fit here, if value then use that value)
     # tuning resulted in interesting combo, investigate results (uses very few hours)
     # tuning used total daily consumption which must be removed since it isn't really available
     #       redo training without it.
@@ -23,21 +45,10 @@ def main():
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    # Uncomment what you want to run
+    # run_daily_total()
+    # run_full_time_resolution()
     tune_hyper_params_fullTimeResolution()
-
-    # # read data
-    # df = data_ingestor.run()
-
-    # # select features
-    # config_day, config_full = features.run(df=df)
-
-    # # train the models to fit training data & compute scores on validation data
-    # logger.debug("Start fitting daily total consumption")
-    # regression.run(config=config_day, figname_prefix="daily_")
-    # logger.debug("Start fitting full time resolution data")
-    # regression.run(config=config_full, figname_prefix="fullTime_")
-
-    # # TODO compare forecast for daily demand with sum of full-time-resolution forecast
 
 
 if __name__ == "__main__":

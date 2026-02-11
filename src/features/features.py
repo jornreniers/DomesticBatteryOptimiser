@@ -16,7 +16,7 @@ from src.features.feature_configuration import FeatureConfiguration
 logger = logging.getLogger()
 
 
-def feature_selection_for_daily_totals(dfl: pl.LazyFrame) -> FeatureConfiguration:
+def _feature_selection_for_daily_totals(dfl: pl.LazyFrame) -> FeatureConfiguration:
     """
     Perform feature selection for when we want to forecast the total daily consumption.
     """
@@ -39,7 +39,7 @@ def feature_selection_for_daily_totals(dfl: pl.LazyFrame) -> FeatureConfiguratio
     return daily_config
 
 
-def feature_selection_for_full_time_resolution(
+def _feature_selection_for_full_time_resolution(
     df: pl.DataFrame,
 ) -> FeatureConfiguration:
     """
@@ -58,7 +58,27 @@ def feature_selection_for_full_time_resolution(
     return full_config
 
 
-def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
+def run_daily_total(
+    df: pl.DataFrame,
+) -> FeatureConfiguration:
+    """
+    Take the dataframe with the raw data, and add columns with features to it.
+    the FeatureConfiguration will keep track of which features should be used
+    """
+    logger.info("Start feature selection")
+
+    # Add all features and prepare them for learning
+    dfl = add_features.run(df=df.lazy())
+
+    # Select features to predict total daily consumption
+    daily_config = _feature_selection_for_daily_totals(dfl=dfl)
+
+    return daily_config
+
+
+def run_full_time_resolution(
+    df: pl.DataFrame,
+) -> FeatureConfiguration:
     """
     Take the dataframe with the raw data, and add columns with features to it.
     the FeatureConfiguration will keep track of which features should be used
@@ -76,10 +96,7 @@ def run(df: pl.DataFrame) -> tuple[FeatureConfiguration, FeatureConfiguration]:
     # of different features and metrics
     full_resolution_data_analyser.run(df=df_with_features)
 
-    # Select features to predict total daily consumption
-    daily_config = feature_selection_for_daily_totals(dfl=dfl)
-
     # select features to predict full time resolution
-    full_config = feature_selection_for_full_time_resolution(df=df_with_features)
+    full_config = _feature_selection_for_full_time_resolution(df=df_with_features)
 
-    return daily_config, full_config
+    return full_config

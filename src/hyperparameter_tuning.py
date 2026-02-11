@@ -1,5 +1,4 @@
 import logging
-import math
 
 import numpy as np
 from sklearn import gaussian_process
@@ -19,7 +18,7 @@ def _train_fulltimeResolution() -> tuple[
     df = data_ingestor.run()
 
     # select features
-    config_day, config_full = features.run(df=df)
+    config_full = features.run_full_time_resolution(df=df)
 
     # train the models to fit training data & compute scores on validation data
     return regression.run(config=config_full, figname_prefix="fullTime_")
@@ -91,6 +90,11 @@ def tune_hyper_params_fullTimeResolution():
     # Store results from all iterations
     results = []
 
+    grid_alpha = InternalConfig.lognoise_minimum is not InternalConfig.lognoise_maximim
+    logger.info(
+        f"Start tuning with {len(manSel)} options for features, {len(nfeatures_to_keep_kb)} and {len(nfeatures_to_keep_rf)} for number of features to keep, and grid search for noise {grid_alpha}"
+    )
+
     for ms in manSel:
         if ms:
             InternalConfig.features_fullResolution_forecast = manual_features
@@ -101,7 +105,7 @@ def tune_hyper_params_fullTimeResolution():
 
         # how many features to remove at which stage
         for nkbest in range(len(nfeatures_to_keep_kb)):
-            for nrfecv in range(nkbest, len(nfeatures_to_keep_rf), 1):
+            for nrfecv in range(len(nfeatures_to_keep_rf)):
                 InternalConfig.fullResolution_fraction_of_features_to_keep_kbest = (
                     nfeatures_to_keep_kb[nkbest]
                 )
@@ -109,36 +113,37 @@ def tune_hyper_params_fullTimeResolution():
                     nfeatures_to_keep_rf[nrfecv]
                 )
 
-                erri, noise, regressor = _train_fulltimeResolution()
+                # Skip combos with more features in rfecv than in kbest since they have no effect
+                if (
+                    InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
+                    <= InternalConfig.fullResolution_fraction_of_features_to_keep_kbest
+                ):
+                    erri, noise, regressor = _train_fulltimeResolution()
 
-                # Store results from this iteration
-                results.append(
-                    {
-                        "ms": ms,
-                        "kbest": InternalConfig.fullResolution_fraction_of_features_to_keep_kbest,
-                        "rfecv": InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv,
-                        "noise": noise,
-                        "error": erri,
-                    }
-                )
-
-                logger.info(
-                    f"manual features {ms}, number kbest features {InternalConfig.fullResolution_fraction_of_features_to_keep_kbest}, number rfecv features {InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv} and noise {noise} resulted in error {erri}"
-                )
-
-                if erri < errmin:
-                    errmin = erri
-                    manual_selection_optimal = ms
-                    number_of_features_kbest = (
-                        InternalConfig.fullResolution_fraction_of_features_to_keep_kbest
-                    )
-                    number_of_features_rfecv = (
-                        InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
+                    # Store results from this iteration
+                    results.append(
+                        {
+                            "ms": ms,
+                            "kbest": InternalConfig.fullResolution_fraction_of_features_to_keep_kbest,
+                            "rfecv": InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv,
+                            "noise": noise,
+                            "error": erri,
+                        }
                     )
 
                     logger.info(
-                        f"Improved solution found with error {errmin}, manual features {manual_selection_optimal}, number kbest features {number_of_features_kbest}, number rfecv features {number_of_features_rfecv} and noise {noise}"
+                        f"manual features {ms}, number kbest features {InternalConfig.fullResolution_fraction_of_features_to_keep_kbest}, number rfecv features {InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv} and noise {noise} resulted in error {erri}"
                     )
+
+                    if erri < errmin:
+                        errmin = erri
+                        manual_selection_optimal = ms
+                        number_of_features_kbest = InternalConfig.fullResolution_fraction_of_features_to_keep_kbest
+                        number_of_features_rfecv = InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
+
+                        logger.info(
+                            f"Improved solution found with error {errmin}, manual features {manual_selection_optimal}, number kbest features {number_of_features_kbest}, number rfecv features {number_of_features_rfecv} and noise {noise}"
+                        )
 
     # Print all results after loops complete
     logger.info("\n" + "=" * 80)
