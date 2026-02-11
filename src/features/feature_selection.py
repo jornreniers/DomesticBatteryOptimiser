@@ -132,8 +132,8 @@ def _select_relevant_features(config: FeatureConfiguration):
     # Use the simple linear least-squared as the metric
     x = config.get_training_data(config.get_features()).to_numpy()
     y = config.get_training_data(config.get_y_name()).to_numpy().flatten()
-    # estim = linear_model.LinearRegression()
-    estim = RandomForestRegressor(n_estimators=50)
+    # estim = linear_model.LinearRegression() # much faster, but only linear interactions
+    estim = RandomForestRegressor(n_estimators=50)  # quite slow
 
     # select features by removing them one by one.
     # cross-validation with 5 folds (each using 4/5 of data for training and 1/5 for validation)
@@ -154,7 +154,7 @@ def _select_relevant_features(config: FeatureConfiguration):
     selector = RFECV(
         estim,
         step=1,
-        cv=5,
+        cv=3,  # the higher CV, the more time it takes
         min_features_to_select=k,
     )
     selector = selector.fit(x, y)

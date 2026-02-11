@@ -99,8 +99,15 @@ def tune_hyper_params_fullTimeResolution():
         if ms:
             InternalConfig.features_fullResolution_forecast = manual_features
         else:
+            # Use all possible features, except the total daily consumption
+            # which we wouldn't know in advance of predicting that day.
+            # We could first use the daily forecaster to predict it and then
+            # use it as a feature but that gets complicated.
             InternalConfig.features_fullResolution_forecast = (
                 InternalConfig.features_categorical + InternalConfig.features_continuous
+            )
+            InternalConfig.features_fullResolution_forecast.remove(
+                "Total_daily_consumption_rescaled"
             )
 
         # how many features to remove at which stage

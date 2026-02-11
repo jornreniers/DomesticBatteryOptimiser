@@ -17,7 +17,8 @@ logger = logging.getLogger()
 
 def score_and_plot_trained_model(
     config: FeatureConfiguration,
-    forecaster: gaussian_process.GaussianProcessRegressor,
+    y_pred: np.ndarray,
+    y_std: np.ndarray,
     figname_prefix: str,
     ploton: bool,
 ) -> tuple[float, float]:
@@ -26,11 +27,6 @@ def score_and_plot_trained_model(
     if false, we just compute the error
     """
 
-    # forecast
-    training_end_date = config.get_training_end_date()
-    y_pred, y_std = forecaster.predict(
-        config.df.select(config.get_features()).to_numpy(), return_std=True
-    )
     df = config.df.select(
         InternalConfig.colname_time,
         InternalConfig.colname_consumption_kwh,
@@ -41,6 +37,7 @@ def score_and_plot_trained_model(
     # plot measured and forecasted value versus the full time axis.
     # Split graph between training and validation data
     if ploton:
+        training_end_date = config.get_training_end_date()
         plot_comparison(
             config.df,
             config.df.select(InternalConfig.colname_consumption_kwh)
@@ -83,7 +80,7 @@ def score_and_plot_trained_model(
 
 def _gaussian_process_regression(
     config: FeatureConfiguration, figname_prefix: str, noise: float
-) -> tuple[float, gaussian_process.GaussianProcessRegressor]:
+) -> tuple[float, np.ndarray, np.ndarray, gaussian_process.GaussianProcessRegressor]:
     """
     Fit the consumption with a gaussian process
     the advantage is that this type of model allows "noise" in measurement data
@@ -110,6 +107,9 @@ def _gaussian_process_regression(
     reg = gaussian_process.GaussianProcessRegressor(
         normalize_y=True, alpha=pow(10, noise)
     ).fit(x, y)
+
+    # Evaluate for all data points. This takes a relative long time
+    # so only do it once and pass the results around
     y_pred, y_std = reg.predict(
         config.df.select(config.get_features()).to_numpy(), return_std=True
     )
@@ -118,7 +118,8 @@ def _gaussian_process_regression(
     prefix = figname_prefix + f"gaussian_process_optimal_alpha{noise}_"
     err_t, err_v = score_and_plot_trained_model(
         config=config,
-        forecaster=reg,
+        y_pred=y_pred,
+        y_std=y_std,
         figname_prefix=prefix,
         ploton=InternalConfig.plot_level >= 3,
     )
@@ -126,7 +127,7 @@ def _gaussian_process_regression(
         f"MAPE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
     )
 
-    return err_v, reg
+    return err_v, y_pred, y_std, reg
 
 
 def tune_hyperparam(
@@ -145,8 +146,10 @@ def tune_hyperparam(
     errmin = np.inf
     alpha = np.inf
     forecaster = gaussian_process.GaussianProcessRegressor()
+    y_pred = np.array([])
+    y_std = np.array([])
     for ap in alpha_power_range:
-        err, fi = _gaussian_process_regression(
+        err, y_pred, y_std, fi = _gaussian_process_regression(
             config=config, figname_prefix=figname_prefix, noise=ap
         )
         if err < errmin:
@@ -163,7 +166,8 @@ def tune_hyperparam(
         prefix = figname_prefix + f"gaussian_process_optimal_alpha{alpha}_"
         score_and_plot_trained_model(
             config=config,
-            forecaster=forecaster,
+            y_pred=y_pred,
+            y_std=y_std,
             figname_prefix=prefix,
             ploton=True,
         )
@@ -178,7 +182,7 @@ def run(
     logger.info("Start regression")
 
     if InternalConfig.lognoise_minimum == InternalConfig.lognoise_maximim:
-        err, forecaster = _gaussian_process_regression(
+        err, y_pred, y_std, forecaster = _gaussian_process_regression(
             config=config,
             figname_prefix=figname_prefix,
             noise=InternalConfig.lognoise_minimum,
@@ -188,7 +192,8 @@ def run(
             prefix = figname_prefix + f"gaussian_process_optimal_alpha{noise}_"
             score_and_plot_trained_model(
                 config=config,
-                forecaster=forecaster,
+                y_pred=y_pred,
+                y_std=y_std,
                 figname_prefix=prefix,
                 ploton=True,
             )
