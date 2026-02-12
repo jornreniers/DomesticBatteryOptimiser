@@ -1,6 +1,10 @@
+from config.InternalConfig import InternalConfig
 import logging
 
-from src.hyperparameter_tuning import tune_hyper_params_fullTimeResolution
+from src.hyperparameter_tuning import (
+    valid_hyperparams,
+    tune_hyper_params_fullTimeResolution,
+)
 from src.data_ingestion import data_ingestor
 from src.features import features
 from src.regression import regression
@@ -16,7 +20,11 @@ def run_daily_total():
     config_day = features.run_daily_total(df=df)
 
     # train the models to fit training data & compute scores on validation data
-    regression.run(config=config_day, figname_prefix="daily_")
+    regression.run(
+        config=config_day,
+        plotfolder=InternalConfig.plot_folder + "/fitting",
+        figname_prefix="daily_",
+    )
 
 
 def run_full_time_resolution():
@@ -27,7 +35,11 @@ def run_full_time_resolution():
     config_full = features.run_full_time_resolution(df=df)
 
     # train the models to fit training data & compute scores on validation data
-    regression.run(config=config_full, figname_prefix="fullTime_")
+    regression.run(
+        config=config_full,
+        plotfolder=InternalConfig.plot_folder + "/fitting",
+        figname_prefix="fullTime_",
+    )
 
 
 def main():
@@ -47,8 +59,10 @@ def main():
 
     # Uncomment what you want to run
     # run_daily_total()
-    # run_full_time_resolution()
-    tune_hyper_params_fullTimeResolution()
+    if valid_hyperparams():
+        run_full_time_resolution()
+    else:
+        tune_hyper_params_fullTimeResolution()
 
 
 if __name__ == "__main__":

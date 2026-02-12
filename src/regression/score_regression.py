@@ -7,14 +7,20 @@ from plotly.subplots import make_subplots
 from typing import cast
 
 from config.InternalConfig import InternalConfig
+from src.features.feature_configuration import FeatureConfiguration
+from src.regression import plot_full_timeseries
+from src.regression import plot_average_versus_time_of_day
 
 
-def _plot_scoring(
+def plot_forecasting_error(
     dfl: pl.LazyFrame,
     fig: plbd.BaseFigure,
     colindex: int,
     histogram_x_bins: np.ndarray | None,
 ):
+    """
+    Plot error between prediction and measured value
+    """
     # plot
     #   ydata and yfitted vs time (colours for train / validation)
     #   error (colours for train / validation)
@@ -90,8 +96,8 @@ def _plot_scoring(
         )
 
 
-def score_regression(
-    df: pl.DataFrame, figname_prefix: str, ploton: bool
+def score_trained_model(
+    df: pl.DataFrame, plotfolder: str, figname_prefix: str, ploton: bool
 ) -> tuple[float, float]:
     """
     dataframe with the following columns:
@@ -132,15 +138,12 @@ def score_regression(
     dflv = dfl.filter(~pl.col(InternalConfig.colname_training_data))
 
     if ploton:
-        subfold = InternalConfig.plot_folder + "/fitting"
-        if not (os.path.exists(subfold)):
-            os.makedirs(subfold)
         # plot absolute error
         fig = make_subplots(
             rows=3, cols=2, subplot_titles=["training", "validation", "", "", "", ""]
         )
-        _plot_scoring(dfl=dflt, fig=fig, colindex=1, histogram_x_bins=None)
-        _plot_scoring(dfl=dflv, fig=fig, colindex=2, histogram_x_bins=None)
+        plot_forecasting_error(dfl=dflt, fig=fig, colindex=1, histogram_x_bins=None)
+        plot_forecasting_error(dfl=dflv, fig=fig, colindex=2, histogram_x_bins=None)
         fig.update_yaxes(title_text="consumption [kWh]", row=1, col=1)
         fig.update_yaxes(title_text="error [kWh]", row=2, col=1)
         fig.update_yaxes(title_text="error histogram (count)", row=3, col=1)
@@ -150,19 +153,21 @@ def score_regression(
         fig.update_xaxes(matches="x", row=2, col=1)
         # fig.update_xaxes(matches="x2", row=1, col=2)
         fig.update_xaxes(matches="x2", row=2, col=2)
-        fig.write_html(subfold + "/" + figname_prefix + "fitting_accuracy.html")
+        fig.write_html(
+            plotfolder + "/" + figname_prefix + "forecasting_error_absolute.html"
+        )
 
         # plot relative error
         fig2 = make_subplots(
             rows=3, cols=2, subplot_titles=["training", "validation", "", "", "", ""]
         )
-        _plot_scoring(
+        plot_forecasting_error(
             dfl=dflt.drop("err").rename({"smape": "err"}),
             fig=fig2,
             colindex=1,
             histogram_x_bins=None,
         )
-        _plot_scoring(
+        plot_forecasting_error(
             dfl=dflv.drop("err").rename({"smape": "err"}),
             fig=fig2,
             colindex=2,
@@ -178,7 +183,7 @@ def score_regression(
         # fig2.update_xaxes(matches="x2", row=1, col=2)
         fig2.update_xaxes(matches="x2", row=2, col=2)
         fig2.write_html(
-            subfold + "/" + figname_prefix + "fitting_accuracy_smape_error.html"
+            plotfolder + "/" + figname_prefix + "forecasting_error_relative.html"
         )
 
     # Compute the weighted mean average percentage error (sum(abs(y - y_forecast)) / sum(y))
@@ -202,3 +207,69 @@ def score_regression(
     rmse_v = dfv.select("wmape").to_numpy().flatten()[0]
 
     return rmse_t, rmse_v
+
+
+def score_and_plot_trained_model(
+    config: FeatureConfiguration,
+    y_pred: np.ndarray,
+    y_std: np.ndarray,
+    plotfolder: str,
+    figname_prefix: str,
+    ploton: bool,
+) -> tuple[float, float]:
+    """
+    ploton: if true we save figures and export the result to a csv file.
+    if false, we just compute the error
+    """
+
+    df = config.df.select(
+        InternalConfig.colname_time,
+        InternalConfig.colname_consumption_kwh,
+        InternalConfig.colname_training_data,
+    ).rename({InternalConfig.colname_consumption_kwh: InternalConfig.colname_ydata})
+    df = df.with_columns(pl.Series(y_pred).alias(InternalConfig.colname_yfit))
+
+    # plot measured and forecasted value versus the full time axis.
+    # Split graph between training and validation data
+    if ploton:
+        training_end_date = config.get_training_end_date()
+        plot_full_timeseries.plot_comparison_full_timeseries(
+            config.df,
+            config.df.select(InternalConfig.colname_consumption_kwh)
+            .to_numpy()
+            .flatten(),
+            y_pred,
+            plotfolder=plotfolder,
+            figname=figname_prefix + "measured_and_forecasts_with_uncertainty_vs_time",
+            y_std=y_std,
+            x_training_endpoint=training_end_date,
+        )
+
+    # Compute the error, plot if desired
+    err_t, err_v = score_trained_model(
+        df=df, plotfolder=plotfolder, figname_prefix=figname_prefix, ploton=ploton
+    )
+
+    # plot measured and forecasted value versus time of day, averaged over a subset of days.
+    # Only look at validation data, and group days by day-of-week, month, temperature, etc.
+    # don't plot if we are forecasting total daily consumption
+    if config.is_full_fit() and ploton:
+        # get the full data again
+        df2 = df.join(
+            other=config.df_orig,
+            on=InternalConfig.colname_time,
+            how="left",
+            coalesce=True,
+        )
+
+        plot_average_versus_time_of_day.plot_comparison_distrubtion_vs_time_of_day(
+            df=df2.filter(~pl.col(InternalConfig.colname_training_data)),
+            plotfolder=plotfolder,
+            figname_prefix=figname_prefix,
+        )
+
+    # Write results to csv
+    if ploton:
+        df.write_csv(plotfolder + "/" + figname_prefix + "result.csv")
+
+    return err_t, err_v

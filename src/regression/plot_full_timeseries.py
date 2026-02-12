@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import polars as pl
 
@@ -8,17 +7,19 @@ from plotly import graph_objects as go
 from config.InternalConfig import InternalConfig
 
 
-def plot_comparison(
+def plot_comparison_full_timeseries(
     df: pl.DataFrame,
     y_data: np.ndarray,
     y_fitted: np.ndarray,
+    plotfolder: str,
     figname: str,
     y_std: np.ndarray | None = None,
     x_training_endpoint: pl.Datetime | None = None,
 ):
     """
-    Plot comparison between actual and predicted consumption along with some selected features.
-    We make a graph with the full time dependency
+    Plot comparison between actual and predicted consumption versus timestamp
+    We make a graph with the full time dependency, plotting the full training
+    and validation data.
 
     Args:
         df_day: DataFrame with daily data
@@ -28,11 +29,8 @@ def plot_comparison(
         y_std: standard deviation of y (optional)
     """
     if InternalConfig.plot_level >= 2:
-        subfold = InternalConfig.plot_folder + "/fitting"
         dfp = df.to_pandas()
         t = df.select(InternalConfig.colname_time).to_numpy().flatten()
-        if not (os.path.exists(subfold)):
-            os.makedirs(subfold)
         fig = make_subplots(
             rows=2,
             cols=1,
@@ -171,4 +169,4 @@ def plot_comparison(
             # skip because it isn't present in the dataframe
             pass
 
-        fig.write_html(subfold + "/" + figname + ".html")
+        fig.write_html(plotfolder + "/" + figname + ".html")

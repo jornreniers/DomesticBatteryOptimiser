@@ -184,6 +184,7 @@ def _groupby_metric_and_plot(
     title_function: Callable[[int, pl.DataFrame], str],
     ylabel_text: str,
     timename: str,
+    plotfolder: str,
     figname_prefix: str,
 ) -> None:
     # compute the average day vs a given metric.
@@ -212,7 +213,6 @@ def _groupby_metric_and_plot(
     subplot_titles = [title_function(x, dfg) for x in metric_values]
 
     # plot
-    subfold = InternalConfig.plot_folder + "/fitting"
     fig = make_subplots(
         rows=nrows,
         cols=ncols,
@@ -240,8 +240,7 @@ def _groupby_metric_and_plot(
         )
 
     fig.write_html(
-        subfold
-        + f"/{figname_prefix}compare_average_{timename}_pattern_of_{yname}_vs_{metric_name}.html"
+        f"{plotfolder}/{figname_prefix}average_{timename}_vs_time_of_day_aggregated_over{metric_name}.html"
     )
 
 
@@ -319,7 +318,9 @@ def _add_buckets_for_T_and_total_consumption(df: pl.DataFrame):
     return df, t_bin_edges, cons_edges
 
 
-def run(df: pl.DataFrame, figname_prefix: str):
+def plot_comparison_distrubtion_vs_time_of_day(
+    df: pl.DataFrame, plotfolder: str, figname_prefix: str
+):
     """
     We plot the consumption and forecast versus time of day.
     We show the distributions for a certain aggregation, eg all Mondays.
@@ -347,6 +348,7 @@ def run(df: pl.DataFrame, figname_prefix: str):
             title_function=_generate_subplot_title_for_month,
             ylabel_text="Absolute demand [kWh]",
             timename=p,
+            plotfolder=plotfolder,
             figname_prefix=figname_prefix,
         )
 
@@ -361,6 +363,7 @@ def run(df: pl.DataFrame, figname_prefix: str):
             ),
             ylabel_text="Absolute demand [kWh]",
             timename=p,
+            plotfolder=plotfolder,
             figname_prefix=figname_prefix,
         )
 
@@ -375,5 +378,6 @@ def run(df: pl.DataFrame, figname_prefix: str):
             ),
             ylabel_text="Absolute demand [kWh]",
             timename=p,
+            plotfolder=plotfolder,
             figname_prefix=figname_prefix,
         )

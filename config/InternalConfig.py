@@ -14,15 +14,15 @@ class InternalConfig:
         0.8  # use kbest to select up to 20 features
     )
     daily_fraction_of_features_to_keep_rfecv = 0.5  # use RFECV to select up to 10 features, must be <= kbest since it is called afterward
-    fullResolution_fraction_of_features_to_keep_kbest = 0.5
-    fullResolution_fraction_of_features_to_keep_rfecv = 0.25
+    fullResolution_fraction_of_features_to_keep_kbest = 0.25  # set to None for tuning
+    fullResolution_fraction_of_features_to_keep_rfecv = 0.25  # set to None for tuning
     max_autocorrelation_threshold = 0.8  # autocorrelation between features that we allow, above this value, features are removed
     # Noise assumptions for the guassian process to fit consumption
     # provided as a power of 10, eg -1 means we assume the error in the value is 10^-1, ie 0.1 kWh
     # If you provide a range, we do a grid search to find the best value
     # If min and max are the same value, we use that value
-    lognoise_minimum = -1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
-    lognoise_maximim = -1
+    lognoise_minimum = -0.5  # -0.1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
+    lognoise_maximim = -0.5  # -0.1
     # number of days used for training vs validation
     training_days = 365
 
@@ -75,7 +75,7 @@ class InternalConfig:
     #   min temperature (or T below/above to approximate bucketed values)
     #   weekday vs weekend
     #   time of day
-    features_fullResolution_forecast = [
+    features_fullResolution_forecast = [  # set to None for tuning
         colname_temperature_dry,
         colname_daily_min_temperature,
         colname_daily_temperature_below_zero,

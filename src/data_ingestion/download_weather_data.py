@@ -123,7 +123,7 @@ def _download_data(save_dir: str):
                 skipped += 1
 
     # Summary
-    logger.info("\n" + "=" * 50)
+    logger.info("=" * 50)
     logger.info("Download Summary:")
     logger.info(f"   Skipped: {skipped}")
     logger.info(f"   Successful: {successful}")

@@ -11,9 +11,9 @@ from src.regression import regression
 logger = logging.getLogger()
 
 
-def _train_fulltimeResolution() -> tuple[
-    float, float, gaussian_process.GaussianProcessRegressor
-]:
+def _train_fulltimeResolution(
+    plotfolder: str,
+) -> tuple[float, float, gaussian_process.GaussianProcessRegressor]:
     # read data
     df = data_ingestor.run()
 
@@ -21,7 +21,22 @@ def _train_fulltimeResolution() -> tuple[
     config_full = features.run_full_time_resolution(df=df)
 
     # train the models to fit training data & compute scores on validation data
-    return regression.run(config=config_full, figname_prefix="fullTime_")
+    return regression.run(
+        config=config_full, plotfolder=plotfolder, figname_prefix="fullTime_"
+    )
+
+
+def valid_hyperparams() -> bool:
+    """
+    Check if the user supplied all hyper parameters with a single value.
+    If so, we can just run the training, otherwise we need to tune the parameters.
+    """
+
+    return (
+        (InternalConfig.features_fullResolution_forecast is not None)
+        & (InternalConfig.fullResolution_fraction_of_features_to_keep_kbest is not None)
+        & (InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv is not None)
+    )
 
 
 def tune_hyper_params_fullTimeResolution():
@@ -86,6 +101,7 @@ def tune_hyper_params_fullTimeResolution():
     manual_selection_optimal = True
     number_of_features_kbest = 0
     number_of_features_rfecv = 0
+    basefold = InternalConfig.plot_folder + "/fitting"
 
     # Store results from all iterations
     results = []
@@ -125,7 +141,10 @@ def tune_hyper_params_fullTimeResolution():
                     InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
                     <= InternalConfig.fullResolution_fraction_of_features_to_keep_kbest
                 ):
-                    erri, noise, regressor = _train_fulltimeResolution()
+                    namei = f"manualSelection{ms}_kbest{InternalConfig.fullResolution_fraction_of_features_to_keep_kbest}_rfecv{InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv}"
+                    erri, noise, regressor = _train_fulltimeResolution(
+                        basefold + "/" + namei
+                    )
 
                     # Store results from this iteration
                     results.append(
