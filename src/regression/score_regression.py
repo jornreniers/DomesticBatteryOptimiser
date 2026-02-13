@@ -17,15 +17,31 @@ def plot_forecasting_error(
     fig: plbd.BaseFigure,
     colindex: int,
     histogram_x_bins: np.ndarray | None,
+    plot_std_on_error: bool,
+    alpha: float | None,
 ):
     """
-    Plot error between prediction and measured value
+    Plot error between prediction and measured value in the specified column.
+    On the top row we plot measured vs forecasted and shade the uncertainty around the forecasted value.
+    On the middle row we plot the error between both, and shade the uncertainty region.
+    On the bottom row we plot the histogram of the error.
+
+    note: alpha is the noise parameter provided to the gaussian process which is
+    the variance of the measurement noise, ie the variance of the "random variation
+    in demand which isn't predicted by the GP". If you set a value, it is also
+    plotted on the middle row, so you can compare both "measurement noise" and "GP uncertainty".
     """
     # plot
     #   ydata and yfitted vs time (colours for train / validation)
     #   error (colours for train / validation)
     #   histograms (separate for train and validation)
     # y values
+    # TODO shade uncertainty
+    #   in top (measrueemnt vs pred) do same as in the other fig
+    #       ie plot total uncertainty
+    #   in error-graph, make a stacked colour of both sources of
+    #       uncertainty (plot just one std, not +-2std cause otherwise)
+    #           it looks confusing
     df = cast(
         pl.DataFrame,
         dfl.select(
@@ -33,6 +49,7 @@ def plot_forecasting_error(
                 InternalConfig.colname_time,
                 InternalConfig.colname_ydata,
                 InternalConfig.colname_yfit,
+                InternalConfig.colname_ystd_total,
                 "err",
             ]
         ).collect(),
@@ -43,6 +60,7 @@ def plot_forecasting_error(
             x=tt,
             y=df.select(InternalConfig.colname_ydata).to_numpy().flatten(),
             name="data",
+            line=dict(color="rgba(0, 0, 200, 1)"),
         ),
         row=1,
         col=colindex,
@@ -52,20 +70,113 @@ def plot_forecasting_error(
             x=tt,
             y=df.select(InternalConfig.colname_yfit).to_numpy().flatten(),
             name="fitted",
+            line=dict(color="rgba(200, 0, 0, 1)"),
         ),
         row=1,
         col=colindex,
     )
+    fig.add_trace(
+        go.Scatter(
+            x=tt,
+            y=df.select(InternalConfig.colname_yfit).to_numpy().flatten()
+            - df.select(InternalConfig.colname_ystd_total).to_numpy().flatten(),
+            mode="lines",
+            line=dict(width=0),  # no thickness so invisible
+            showlegend=False,  # no legend
+            legendgroup="ci",
+        ),
+        row=1,
+        col=colindex,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=tt,
+            y=df.select(InternalConfig.colname_yfit).to_numpy().flatten()
+            + df.select(InternalConfig.colname_ystd_total).to_numpy().flatten(),
+            mode="lines",
+            line=dict(width=0),
+            fill="tonexty",  # fills between this line and the previous one
+            fillcolor="rgba(255, 0, 0, 0.2)",  # semi-transparent
+            name="68.5% Confidence Interval",
+            legendgroup="ci",
+        ),
+        row=1,
+        col=colindex,
+    )
+
     # errors
     fig.add_trace(
         go.Scatter(
             x=tt,
             y=df.select("err").to_numpy().flatten(),
             name="error",
+            line=dict(color="rgba(0, 200, 0, 1)"),
         ),
         row=2,
         col=colindex,
     )
+    if plot_std_on_error and (alpha is not None):
+        # plot total standard deviation
+        fig.add_trace(
+            go.Scatter(
+                x=tt,
+                y=-df.select(InternalConfig.colname_ystd_total).to_numpy().flatten(),
+                mode="lines",
+                line=dict(width=0),  # no thickness so invisible
+                showlegend=False,  # no legend
+                legendgroup="ci",
+            ),
+            row=2,
+            col=colindex,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=tt,
+                y=df.select(InternalConfig.colname_ystd_total).to_numpy().flatten(),
+                mode="lines",
+                line=dict(width=0),
+                fill="tonexty",  # fills between this line and the previous one
+                fillcolor="rgba(255, 0, 0, 0.2)",  # semi-transparent
+                name="+- 1 sigma total",
+                legendgroup="ci",
+            ),
+            row=2,
+            col=colindex,
+        )
+        # plot "measurement noise"
+        fig.add_trace(
+            go.Scatter(
+                x=tt,
+                y=-alpha
+                * np.ones_like(
+                    df.select(InternalConfig.colname_ystd_total).to_numpy().flatten()
+                ),
+                mode="lines",
+                line=dict(width=0),  # no thickness so invisible
+                showlegend=False,  # no legend
+                legendgroup="ci",
+            ),
+            row=2,
+            col=colindex,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=tt,
+                y=alpha
+                * np.ones_like(
+                    df.select(InternalConfig.colname_ystd_total).to_numpy().flatten()
+                ),
+                mode="lines",
+                line=dict(width=0),
+                fill="tonexty",  # fills between this line and the previous one
+                fillcolor="rgba(0, 0, 255, 0.2)",  # semi-transparent
+                name="+- 1 sigma in measurement noise",
+                legendgroup="ci",
+            ),
+            row=2,
+            col=colindex,
+        )
+
     # histogram
     # if you just want to compute it: hist = dfl.select(pl.col("errabs").hist(bin_count=10)).collect()["errabs"]
     if histogram_x_bins is None:
@@ -97,12 +208,17 @@ def plot_forecasting_error(
 
 
 def score_trained_model(
-    df: pl.DataFrame, plotfolder: str, figname_prefix: str, ploton: bool
+    df: pl.DataFrame,
+    alpha: float | None,
+    plotfolder: str,
+    figname_prefix: str,
+    ploton: bool,
 ) -> tuple[float, float]:
     """
     dataframe with the following columns:
         InternalConfig.colname_ydata: the measured y-values
         InternalConfig.colname_yfit: the fitted y-values
+        InternalConfig.colname_ystd_total: the total std on y (measurement noise and gaussian-process-uncertainty)
         InternalConfig.colname_training_data: boolean mask, true if this data point was used for training, false if it wasn't
         InternalConfig.colname_time: time-axis (or other x-axis) used for plotting results
 
@@ -142,8 +258,22 @@ def score_trained_model(
         fig = make_subplots(
             rows=3, cols=2, subplot_titles=["training", "validation", "", "", "", ""]
         )
-        plot_forecasting_error(dfl=dflt, fig=fig, colindex=1, histogram_x_bins=None)
-        plot_forecasting_error(dfl=dflv, fig=fig, colindex=2, histogram_x_bins=None)
+        plot_forecasting_error(
+            dfl=dflt,
+            fig=fig,
+            colindex=1,
+            histogram_x_bins=None,
+            plot_std_on_error=True,
+            alpha=alpha,
+        )
+        plot_forecasting_error(
+            dfl=dflv,
+            fig=fig,
+            colindex=2,
+            histogram_x_bins=None,
+            plot_std_on_error=True,
+            alpha=alpha,
+        )
         fig.update_yaxes(title_text="consumption [kWh]", row=1, col=1)
         fig.update_yaxes(title_text="error [kWh]", row=2, col=1)
         fig.update_yaxes(title_text="error histogram (count)", row=3, col=1)
@@ -166,12 +296,16 @@ def score_trained_model(
             fig=fig2,
             colindex=1,
             histogram_x_bins=None,
+            plot_std_on_error=False,
+            alpha=alpha,
         )
         plot_forecasting_error(
             dfl=dflv.drop("err").rename({"smape": "err"}),
             fig=fig2,
             colindex=2,
             histogram_x_bins=None,
+            plot_std_on_error=False,
+            alpha=alpha,
         )
         fig2.update_yaxes(title_text="consumption [kWh]", row=1, col=1)
         fig2.update_yaxes(title_text="error [%]", row=2, col=1)
@@ -213,6 +347,7 @@ def score_and_plot_trained_model(
     config: FeatureConfiguration,
     y_pred: np.ndarray,
     y_std: np.ndarray,
+    alpha: float | None,
     plotfolder: str,
     figname_prefix: str,
     ploton: bool,
@@ -228,6 +363,7 @@ def score_and_plot_trained_model(
         InternalConfig.colname_training_data,
     ).rename({InternalConfig.colname_consumption_kwh: InternalConfig.colname_ydata})
     df = df.with_columns(pl.Series(y_pred).alias(InternalConfig.colname_yfit))
+    df = df.with_columns(pl.Series(y_std).alias(InternalConfig.colname_ystd_total))
 
     # plot measured and forecasted value versus the full time axis.
     # Split graph between training and validation data
@@ -247,7 +383,11 @@ def score_and_plot_trained_model(
 
     # Compute the error, plot if desired
     err_t, err_v = score_trained_model(
-        df=df, plotfolder=plotfolder, figname_prefix=figname_prefix, ploton=ploton
+        df=df,
+        alpha=alpha,
+        plotfolder=plotfolder,
+        figname_prefix=figname_prefix,
+        ploton=ploton,
     )
 
     # plot measured and forecasted value versus time of day, averaged over a subset of days.

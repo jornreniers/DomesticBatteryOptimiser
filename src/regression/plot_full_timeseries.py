@@ -21,6 +21,11 @@ def plot_comparison_full_timeseries(
     We make a graph with the full time dependency, plotting the full training
     and validation data.
 
+    For the forecast, we also provide a confidence interval / uncertainty range.
+    This uncertainty is the total value, accounting both for forecasting uncertainty
+    (as computed by the gaussian process) and the measurement uncertainty (ie random
+    variation in electricity consuption) as set by the parameters (InternalConfig.lognoise).
+
     Args:
         df_day: DataFrame with daily data
         y_data: Actual consumption values

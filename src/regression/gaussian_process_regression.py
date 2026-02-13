@@ -87,7 +87,7 @@ def gaussian_process_regression(
 
     # TODO update code
     #   the square and sqrt should be element-wise
-    y_std = np.sqrt(y_std**2 + pow(10, noise))
+    y_std = np.sqrt(np.square(y_std) + pow(10, noise))
 
     # TODO WHEN SCORING a hyperparameter fitting, account for the noise
     #       ie is indeed 68% within +-1 std (y_std+10^alpha)???
@@ -103,6 +103,7 @@ def gaussian_process_regression(
         config=config,
         y_pred=y_pred,
         y_std=y_std,
+        alpha=pow(10, noise),
         plotfolder=plotfolder,
         figname_prefix=prefix,
         ploton=InternalConfig.plot_level >= 3,

@@ -19,10 +19,12 @@ class InternalConfig:
     max_autocorrelation_threshold = 0.8  # autocorrelation between features that we allow, above this value, features are removed
     # Noise assumptions for the guassian process to fit consumption
     # provided as a power of 10, eg -1 means we assume the error in the value is 10^-1, ie 0.1 kWh
+    # this value is the variance of the random variation in daily consumption
+    # ie the standard deviation is sqrt(10^lognoise)
     # If you provide a range, we do a grid search to find the best value
     # If min and max are the same value, we use that value
-    lognoise_minimum = -0.5  # -0.1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
-    lognoise_maximim = -0.5  # -0.1
+    lognoise_minimum = -0.1  # -0.1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
+    lognoise_maximim = -0.1  # -0.1
     # number of days used for training vs validation
     training_days = 365
 
@@ -52,6 +54,7 @@ class InternalConfig:
     colname_training_data = "training_row_filter"
     colname_ydata = "y_data"
     colname_yfit = "y_fitted"
+    colname_ystd_total = "y_std_total"  # total uncertainty, measurement noise & GP
 
     # Feature selection
     # This is a first-step manual selection to speed up computation

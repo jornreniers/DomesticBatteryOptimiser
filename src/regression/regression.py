@@ -37,6 +37,7 @@ def run(
                 config=config,
                 y_pred=y_pred,
                 y_std=y_std,
+                alpha=pow(10, noise),
                 plotfolder=plotfolder,
                 figname_prefix=prefix,
                 ploton=True,

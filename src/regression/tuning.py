@@ -56,6 +56,7 @@ def tune_gpr_hyperparam(
             config=config,
             y_pred=y_pred,
             y_std=y_std,
+            alpha=pow(10, ap),
             plotfolder=plotfolder,
             figname_prefix=prefix,
             ploton=True,

@@ -187,6 +187,15 @@ def _groupby_metric_and_plot(
     plotfolder: str,
     figname_prefix: str,
 ) -> None:
+    """
+    Aggregate the forecast and real values over a metric (eg month) at each time of the day.
+    Plot the distribution (mean and st) of this aggregation.
+
+    Note that for the forecast, this is the standard deviation of the mean forecast within the
+    aggregation, which is unrelated to the uncertainty of the forecast (y_std).
+    To compare measurements with the forecast including forecasting uncertainty and measurement
+    error, see the graphs made by plot_full_timeseries.py
+    """
     # compute the average day vs a given metric.
     dfg = (
         df.group_by([metric_name, InternalConfig.colname_period_index])
