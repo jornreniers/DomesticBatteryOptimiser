@@ -15,7 +15,14 @@ logger = logging.getLogger()
 
 def gaussian_process_regression(
     config: FeatureConfiguration, plotfolder: str, figname_prefix: str, noise: float
-) -> tuple[float, np.ndarray, np.ndarray, gaussian_process.GaussianProcessRegressor]:
+) -> tuple[
+    float,
+    float,
+    float,
+    np.ndarray,
+    np.ndarray,
+    gaussian_process.GaussianProcessRegressor,
+]:
     """
     Fit the consumption with a gaussian process
     the advantage is that this type of model allows "noise" in measurement data
@@ -30,7 +37,13 @@ def gaussian_process_regression(
     however, this should not be fully relied upon depending on the amount
     of training data.
 
-    Returns the MAPE on the validation data
+    Returns
+    the MAPE on the validation data,
+    the fraction of data points for which the error is within +- 1 std in training
+    the fraction of data points for which the error is within +- 1 std in validation
+    array with forecasts values at all points in time (training & validation)
+    array with total standard deviation (measurement + gp) at all points in time (training & validation)
+    trained GP regressor
     """
     # gaussian processes: https://scikit-learn.org/stable/modules/gaussian_process.html
 
@@ -84,32 +97,23 @@ def gaussian_process_regression(
         that the distribution of noisy measurements has a covariance
         of K(x,x) + sigma_n^2, where sigma_n == alpha (or ^2)
     """
-
-    # TODO update code
-    #   the square and sqrt should be element-wise
     y_std = np.sqrt(np.square(y_std) + pow(10, noise))
-
-    # TODO WHEN SCORING a hyperparameter fitting, account for the noise
-    #       ie is indeed 68% within +-1 std (y_std+10^alpha)???
-    #       and then minimise alpha while keeping that constraint true?????
-    # ie fit with alpha
-    #   count points with error within +-1std vs those outside
-    #   minimise alpha subject_to err_within_1std >=0.685 * number_of_points
-    #       or also look at 2stds
 
     # Score how well the fit went, plot if desired
     prefix = figname_prefix + f"gaussian_process_optimal_alpha{noise}_"
-    err_t, err_v = score_regression.score_and_plot_trained_model(
-        config=config,
-        y_pred=y_pred,
-        y_std=y_std,
-        alpha=pow(10, noise),
-        plotfolder=plotfolder,
-        figname_prefix=prefix,
-        ploton=InternalConfig.plot_level >= 3,
+    err_t, err_v, f_in_std_t, f_in_std_v = (
+        score_regression.score_and_plot_trained_model(
+            config=config,
+            y_pred=y_pred,
+            y_std=y_std,
+            alpha=pow(10, noise),
+            plotfolder=plotfolder,
+            figname_prefix=prefix,
+            ploton=InternalConfig.plot_level >= 3,
+        )
     )
     logger.debug(
         f"MAPE on training data is {err_t} and on validation data {err_v} for fitting on {prefix}"
     )
 
-    return err_v, y_pred, y_std, reg
+    return err_v, f_in_std_t, f_in_std_v, y_pred, y_std, reg

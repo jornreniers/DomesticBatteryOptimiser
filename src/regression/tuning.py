@@ -32,7 +32,7 @@ def tune_gpr_hyperparam(
     y_pred = np.array([])
     y_std = np.array([])
     for ap in alpha_power_range:
-        err, y_pred, y_std, fi = (
+        err, f_in_std_t, f_in_std_v, y_pred, y_std, fi = (
             gaussian_process_regression.gaussian_process_regression(
                 config=config,
                 plotfolder=plotfolder,
@@ -40,16 +40,37 @@ def tune_gpr_hyperparam(
                 noise=ap,
             )
         )
-        if err < errmin:
+
+        logger.info(
+            f"Tuning with {ap} measurement noise. MAPE {err:.3f}, and {f_in_std_v * 100:.2f}% in +- 1 std for validation or {f_in_std_t * 100:.2f}% for training"
+        )
+
+        # TODO there are two options to pick from:
+        # (1) minimise forecasting error
+        # (2) minimise uncertainty on forecasting
+        # We need a mix of both, the former results in quite a large uncertainty
+        # while the latter gets a fit which is good during the day (when demand is constant)
+        # but isn't good at predicting peaks (which are just a few data points)
+
+        # OPTION 1: minimise the forecasting error
+        # if err < errmin:
+        #     errmin = err
+        #     alpha = ap
+        #     forecaster = fi
+        # OPTION 2: smallest alpha that has 68% of data points in +- 1 std
+        # loop goes from small (~0%) to large (100%) so as soon as we find one, stop
+        if f_in_std_v >= 0.68:
             errmin = err
             alpha = ap
             forecaster = fi
+            break
 
     logger.info(
         f"The optimal fit has noise exponent {alpha}, resulting in an error of {errmin}"
     )
 
     # Make all the plots and write results to csv
+    # intermediate plots (for all attempted values of alpha) are only made for plotlevel >= 3
     if InternalConfig.plot_level >= 2:
         prefix = figname_prefix + f"gaussian_process_optimal_alpha{alpha}_"
         score_regression.score_and_plot_trained_model(

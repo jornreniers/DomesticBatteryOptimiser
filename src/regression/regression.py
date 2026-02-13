@@ -21,8 +21,10 @@ def run(
     if not (os.path.exists(plotfolder)):
         os.makedirs(plotfolder)
 
+    # If all parameters are known, run that one
+    # Results are plotted along the way
     if InternalConfig.lognoise_minimum == InternalConfig.lognoise_maximim:
-        err, y_pred, y_std, forecaster = (
+        err, f_in_std_t, f_in_std_v, y_pred, y_std, forecaster = (
             gaussian_process_regression.gaussian_process_regression(
                 config=config,
                 plotfolder=plotfolder,
@@ -30,6 +32,11 @@ def run(
                 noise=InternalConfig.lognoise_minimum,
             )
         )
+
+        logger.info(
+            f"Training completed with MAPE {err:.3f}, and {f_in_std_v * 100:.2f}% of data points within +- 1 std in validation data"
+        )
+
         noise = InternalConfig.lognoise_minimum
         if InternalConfig.plot_level >= 2:
             prefix = figname_prefix + f"gaussian_process_optimal_alpha{noise}_"
@@ -42,6 +49,7 @@ def run(
                 figname_prefix=prefix,
                 ploton=True,
             )
+    # Otherwise tune hyperparams
     else:
         err, noise, forecaster = tuning.tune_gpr_hyperparam(
             config=config, plotfolder=plotfolder, figname_prefix=figname_prefix

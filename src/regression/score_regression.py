@@ -147,7 +147,7 @@ def plot_forecasting_error(
         fig.add_trace(
             go.Scatter(
                 x=tt,
-                y=-alpha
+                y=-np.sqrt(alpha)
                 * np.ones_like(
                     df.select(InternalConfig.colname_ystd_total).to_numpy().flatten()
                 ),
@@ -162,7 +162,7 @@ def plot_forecasting_error(
         fig.add_trace(
             go.Scatter(
                 x=tt,
-                y=alpha
+                y=np.sqrt(alpha)
                 * np.ones_like(
                     df.select(InternalConfig.colname_ystd_total).to_numpy().flatten()
                 ),
@@ -213,7 +213,7 @@ def score_trained_model(
     plotfolder: str,
     figname_prefix: str,
     ploton: bool,
-) -> tuple[float, float]:
+) -> tuple[float, float, float, float]:
     """
     dataframe with the following columns:
         InternalConfig.colname_ydata: the measured y-values
@@ -225,7 +225,9 @@ def score_trained_model(
     returns:
         wMAPE on training data
         wMAPE on validation data
-        see https://en.wikipedia.org/wiki/Mean_absolute_percentage_error#WMAPE
+            see https://en.wikipedia.org/wiki/Mean_absolute_percentage_error#WMAPE
+        fraction of training data points with absolute error +- 1 standard deviation
+        fraction of validation data points with absolute error +- 1 standard deviation
     plots:
         smape on training and validation data
             |y - yfit| / ((|y|+|yfit|)/2)
@@ -249,6 +251,9 @@ def score_trained_model(
             / 2.0
         )
         * 100.0
+    )
+    dfl = dfl.with_columns(
+        in_range=pl.col("errabs") <= pl.col(InternalConfig.colname_ystd_total)
     )
     dflt = dfl.filter(pl.col(InternalConfig.colname_training_data))
     dflv = dfl.filter(~pl.col(InternalConfig.colname_training_data))
@@ -323,11 +328,15 @@ def score_trained_model(
     # Compute the weighted mean average percentage error (sum(abs(y - y_forecast)) / sum(y))
     dft = cast(
         pl.DataFrame,
-        dflt.select(["errabs", InternalConfig.colname_ydata]).sum().collect(),
+        dflt.select(["errabs", InternalConfig.colname_ydata, "in_range"])
+        .sum()
+        .collect(),
     )
     dfv = cast(
         pl.DataFrame,
-        dflv.select(["errabs", InternalConfig.colname_ydata]).sum().collect(),
+        dflv.select(["errabs", InternalConfig.colname_ydata, "in_range"])
+        .sum()
+        .collect(),
     )
 
     dft = dft.with_columns(
@@ -337,10 +346,21 @@ def score_trained_model(
         wmape=pl.col("errabs") / pl.col(InternalConfig.colname_ydata)
     )
 
-    rmse_t = dft.select("wmape").to_numpy().flatten()[0]
-    rmse_v = dfv.select("wmape").to_numpy().flatten()[0]
+    rmse_t = dft.select("wmape").item()
+    rmse_v = dfv.select("wmape").item()
+    fraction_in_range_t = (
+        dft.select("in_range").item() / dflt.select(pl.len()).collect().item()
+    )
+    fraction_in_range_v = (
+        dfv.select("in_range").item() / dflv.select(pl.len()).collect().item()
+    )
 
-    return rmse_t, rmse_v
+    return (
+        rmse_t,
+        rmse_v,
+        fraction_in_range_t,
+        fraction_in_range_v,
+    )
 
 
 def score_and_plot_trained_model(
@@ -351,7 +371,7 @@ def score_and_plot_trained_model(
     plotfolder: str,
     figname_prefix: str,
     ploton: bool,
-) -> tuple[float, float]:
+) -> tuple[float, float, float, float]:
     """
     ploton: if true we save figures and export the result to a csv file.
     if false, we just compute the error
@@ -382,7 +402,7 @@ def score_and_plot_trained_model(
         )
 
     # Compute the error, plot if desired
-    err_t, err_v = score_trained_model(
+    err_t, err_v, f_in_std_t, f_in_std_v = score_trained_model(
         df=df,
         alpha=alpha,
         plotfolder=plotfolder,
@@ -412,4 +432,4 @@ def score_and_plot_trained_model(
     if ploton:
         df.write_csv(plotfolder + "/" + figname_prefix + "result.csv")
 
-    return err_t, err_v
+    return err_t, err_v, f_in_std_t, f_in_std_v
