@@ -175,3 +175,59 @@ def plot_comparison_full_timeseries(
             pass
 
         fig.write_html(plotfolder + "/" + figname + ".html")
+
+
+def plot_comparison_full_timeseries_of_daily_totals(
+    df: pl.DataFrame,
+    y_data: np.ndarray,
+    y_fitted: np.ndarray,
+    plotfolder: str,
+    figname: str,
+    y_std: np.ndarray | None = None,
+    x_training_endpoint: pl.Datetime | None = None,
+):
+    """
+    If we are forecasting the full resolution of consumption, it might be interesting to see
+    how we it does in aggregate over a day, for instance to compare with the model that is trained
+    just on daily totals.
+    """
+
+    # get all into one df
+    df = df.with_columns(pl.Series(y_fitted).alias(InternalConfig.colname_yfit))
+    df = df.with_columns(pl.Series(np.square(y_std)).alias("variance"))
+
+    # compute daily total
+    # If we assume each point of the day is not correlated,
+    #   sigma^2 = sum(sigma_i^2)
+    # otherwise you need to know the correlation
+    #   sigma = sqrt( sigma_1^2 + sigma_2^2 + 2*rho*sigma_1*sigma_2)
+    df_day = (
+        df.group_by(InternalConfig.colname_date)
+        .agg(
+            # pl.col(InternalConfig.colname_date).first(),
+            pl.col(InternalConfig.colname_consumption_kwh).sum(),
+            pl.col(InternalConfig.colname_yfit).sum(),
+            pl.col("variance").sum(),  # VARIANCE
+            pl.col(InternalConfig.colname_daily_min_temperature).first(),
+        )
+        .rename({InternalConfig.colname_date: InternalConfig.colname_time})
+        .sort(InternalConfig.colname_time)
+    )
+    df_day = df_day.with_columns(
+        pl.Series(df_day.select("variance"))
+        .sqrt()
+        .alias(InternalConfig.colname_ystd_total)
+    )
+
+    # plot using the other function
+    plot_comparison_full_timeseries(
+        df=df_day,
+        y_data=df_day.select(InternalConfig.colname_consumption_kwh)
+        .to_numpy()
+        .flatten(),
+        y_fitted=df_day.select(InternalConfig.colname_yfit).to_numpy().flatten(),
+        plotfolder=plotfolder,
+        figname=figname,
+        y_std=df_day.select(InternalConfig.colname_ystd_total).to_numpy().flatten(),
+        x_training_endpoint=x_training_endpoint,
+    )

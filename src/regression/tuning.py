@@ -51,19 +51,21 @@ def tune_gpr_hyperparam(
         # We need a mix of both, the former results in quite a large uncertainty
         # while the latter gets a fit which is good during the day (when demand is constant)
         # but isn't good at predicting peaks (which are just a few data points)
+        # For now, leave this as a manual thing. Both options are coded but then
+        # you need to chose a value which is ok for both.
 
         # OPTION 1: minimise the forecasting error
-        # if err < errmin:
-        #     errmin = err
-        #     alpha = ap
-        #     forecaster = fi
-        # OPTION 2: smallest alpha that has 68% of data points in +- 1 std
-        # loop goes from small (~0%) to large (100%) so as soon as we find one, stop
-        if f_in_std_v >= 0.68:
+        if err < errmin:
             errmin = err
             alpha = ap
             forecaster = fi
-            break
+        # OPTION 2: smallest alpha that has 68% of data points in +- 1 std
+        # loop goes from small (~0%) to large (100%) so as soon as we find one, stop
+        # if f_in_std_v >= 0.68:
+        #     errmin = err
+        #     alpha = ap
+        #     forecaster = fi
+        #     break
 
     logger.info(
         f"The optimal fit has noise exponent {alpha}, resulting in an error of {errmin}"

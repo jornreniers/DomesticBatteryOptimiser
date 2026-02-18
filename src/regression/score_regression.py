@@ -386,6 +386,8 @@ def score_and_plot_trained_model(
     df = df.with_columns(pl.Series(y_std).alias(InternalConfig.colname_ystd_total))
 
     # plot measured and forecasted value versus the full time axis.
+    # If this is a full-time resolution fit, also plot the graph for
+    # total daily consumption to see how accurate the aggregate is.
     # Split graph between training and validation data
     if ploton:
         training_end_date = config.get_training_end_date()
@@ -400,6 +402,19 @@ def score_and_plot_trained_model(
             y_std=y_std,
             x_training_endpoint=training_end_date,
         )
+        if config.is_full_fit():
+            plot_full_timeseries.plot_comparison_full_timeseries_of_daily_totals(
+                config.df,
+                config.df.select(InternalConfig.colname_consumption_kwh)
+                .to_numpy()
+                .flatten(),
+                y_pred,
+                plotfolder=plotfolder,
+                figname=figname_prefix
+                + "measured_and_forecasts_with_uncertainty_vs_time_daily_total",
+                y_std=y_std,
+                x_training_endpoint=training_end_date,
+            )
 
     # Compute the error, plot if desired
     err_t, err_v, f_in_std_t, f_in_std_v = score_trained_model(

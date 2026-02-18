@@ -13,6 +13,7 @@ logger = logging.getLogger()
 
 
 def run_daily_total():
+    logger.info("Start training for forecasting total daily consumption")
     # read data
     df = data_ingestor.run()
 
@@ -28,6 +29,9 @@ def run_daily_total():
 
 
 def run_full_time_resolution():
+    logger.info(
+        "Start training for forecasting consumption at the full time resolution"
+    )
     # read data
     df = data_ingestor.run()
 
@@ -43,12 +47,6 @@ def run_full_time_resolution():
 
 
 def main():
-
-    # TODO
-    # tuning resulted in interesting combo, investigate results (uses very few hours)
-    # tuning used total daily consumption which must be removed since it isn't really available
-    #       redo training without it.
-    #       training took 1.5 h so start at end of day
 
     # Set the logging level to info
     logging.basicConfig(

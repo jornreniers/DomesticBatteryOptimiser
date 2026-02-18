@@ -56,6 +56,10 @@ def tune_hyper_params_fullTimeResolution():
     For the noise assumption, if the min and max are set the the same value, we use that; otherwise we do a grid search
     """
 
+    logger.info(
+        "Start tuning the hyper parameters for forecasting the consumption at the full time resolution"
+    )
+
     # use manual selection of features or not
     # In total, there are 12 continuous features and 69 dummy options from 4 categorical features
     #   index: 48 options

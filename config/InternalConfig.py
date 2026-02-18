@@ -23,8 +23,8 @@ class InternalConfig:
     # ie the standard deviation is sqrt(10^lognoise)
     # If you provide a range, we do a grid search to find the best value
     # If min and max are the same value, we use that value
-    lognoise_minimum = -1.66  # -0.1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
-    lognoise_maximim = 0 - 1.66  # -0.1
+    lognoise_minimum = -1  # -0.1  # alpha in gaussian process is 10^(lognoise_minimum) <= alpha <= 10^(lognoise_maximim)
+    lognoise_maximim = -1  # -0.1
     # number of days used for training vs validation
     training_days = 365
 
