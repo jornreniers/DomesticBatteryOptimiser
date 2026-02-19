@@ -39,3 +39,20 @@ The files are downloaded with a script that is run once per day and pulls the la
 - E: dry bulb temperature (Celcius)
 - I: relative humidity (percentage) (not currently used by the code)
 Values of -999 indicate missing data. The day and time are in UTC times as confirmed by their [script](https://gitlab.physics.ox.ac.uk/povey/aopp_weather_station/-/blob/master/weather/instromet.py?ref_type=heads)
+
+## Demand fitting and forecasting
+
+A gaussian process is trained to forecast electricity consumption. Possible features are:
+
+- local time of day (categorical)
+- day of the week (categorical)
+- weekday vs weekend (categorical)
+- month (categorical)
+- outside temperature
+- daily mininimum, average or maximum temperature
+- daily minimumum temperature ceiled to 0, 5, 10 or 15 degrees (useful to capture nonlinearities due to electric heating)
+- daily maximum temperature floored to 15, 20, or 25 (useful capture nonlinearities due to aiconditioning)
+
+Users can first manually select which features to consider (in InternalConfig) if desired. In either case, there is a three-stage feature-selection process to reduce the number of features. Firstly we select the features which best correlate with the consumption (using KBest), which is useful to remove many of the categorical-expanded-to-dummy variables. Then we remove features which are highly correlated with each other. In the final step, we iteratively remove the least useful feature with cross validation. Several figures are made where users can check the different features, their correlation etc.
+
+The regression is a fairly straightforward Guassian process. There is some tuning of the noise-assumption, but this also depends on human judgement since a tigher fit (smaller MAPE) will result in larger noise assumption and hence larger uncertainty. Again, a large number of figures are made covering both training and validation periods for users to analyse the result.

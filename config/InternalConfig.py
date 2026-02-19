@@ -14,7 +14,9 @@ class InternalConfig:
         0.8  # use kbest to select up to 20 features
     )
     daily_fraction_of_features_to_keep_rfecv = 0.5  # use RFECV to select up to 10 features, must be <= kbest since it is called afterward
-    fullResolution_fraction_of_features_to_keep_kbest = 0.25  # set to None for tuning
+    fullResolution_fraction_of_features_to_keep_kbest = (
+        None  # 0.25  # set to None for tuning
+    )
     fullResolution_fraction_of_features_to_keep_rfecv = 0.25  # set to None for tuning
     max_autocorrelation_threshold = 0.8  # autocorrelation between features that we allow, above this value, features are removed
     # Noise assumptions for the guassian process to fit consumption
