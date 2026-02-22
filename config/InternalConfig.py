@@ -5,6 +5,12 @@ class InternalConfig:
     plot_folder = "Results"
 
     # Features and regression settings
+
+    # TODO best fit is
+    # 2026-02-19 16:52:01 [INFO] root: Optimal fit found with error 0.6198210176868121, manual features False, number kbest features 0.5, number rfecv features 0.5 and noise -1
+    # so make an option to run without manual selection of features. atm you can only do manual or tuning, not select from all.
+    # then set that as default and move on.
+
     # specify the number of features (as fraction of the total number of features)
     # you want to keep after the two stages of feature selection
     # the value for xx_rfecv must be <= the value of _kbest since it is applied after

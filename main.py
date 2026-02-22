@@ -56,13 +56,7 @@ def main():
     )
 
     # Uncomment what you want to run
-    # run_daily_total()
-
-    # TODO best fit is
-    # 2026-02-19 16:52:01 [INFO] root: Optimal fit found with error 0.6198210176868121, manual features False, number kbest features 0.5, number rfecv features 0.5 and noise -1
-    # so make an option to run without manual selection of features. atm you can only do manual or tuning, not select from all.
-    # then set that as default and move on.
-
+    run_daily_total()
     if valid_hyperparams():
         run_full_time_resolution()
     else:
