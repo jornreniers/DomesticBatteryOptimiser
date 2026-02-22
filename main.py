@@ -1,13 +1,66 @@
+from config.InternalConfig import InternalConfig
+import logging
+
+from src.hyperparameter_tuning import (
+    valid_hyperparams,
+    tune_hyper_params_fullTimeResolution,
+)
 from src.data_ingestion import data_ingestor
 from src.features import features
 from src.regression import regression
 
+logger = logging.getLogger()
+
+
+def run_daily_total():
+    logger.info("Start training for forecasting total daily consumption")
+    # read data
+    df = data_ingestor.run()
+
+    # select features
+    config_day = features.run_daily_total(df=df)
+
+    # train the models to fit training data & compute scores on validation data
+    regression.run(
+        config=config_day,
+        plotfolder=InternalConfig.plot_folder + "/fitting",
+        figname_prefix="daily_",
+    )
+
+
+def run_full_time_resolution():
+    logger.info(
+        "Start training for forecasting consumption at the full time resolution"
+    )
+    # read data
+    df = data_ingestor.run()
+
+    # select features
+    config_full = features.run_full_time_resolution(df=df)
+
+    # train the models to fit training data & compute scores on validation data
+    regression.run(
+        config=config_full,
+        plotfolder=InternalConfig.plot_folder + "/fitting",
+        figname_prefix="fullTime_",
+    )
+
 
 def main():
-    df = data_ingestor.run()
-    config_day, config_full = features.run(df=df)
-    regression.run(config=config_day, figname_prefix="daily_")
-    regression.run(config=config_full, figname_prefix="fullTime_")
+
+    # Set the logging level to info
+    logging.basicConfig(
+        level=logging.INFO,  # Global minimum logging level DEBUG, INFO, WARNING, ERROR
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Uncomment what you want to run
+    run_daily_total()
+    if valid_hyperparams():
+        run_full_time_resolution()
+    else:
+        tune_hyper_params_fullTimeResolution()
 
 
 if __name__ == "__main__":

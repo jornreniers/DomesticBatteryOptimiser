@@ -1,9 +1,14 @@
+import logging
+import math
 import numpy as np
 import polars as pl
 from sklearn import linear_model
 
 from config.InternalConfig import InternalConfig
 from src.features.feature_configuration import FeatureConfiguration
+
+
+logger = logging.getLogger()
 
 
 class CorrelatedFeatureRemover:
@@ -74,12 +79,12 @@ class CorrelatedFeatureRemover:
         # if one is higher correlated with other features and lower correlated with the demand
         # then drop that one
         if (corr_features[0] >= corr_features[1]) and (corr_y[0] <= corr_y[1]):
-            # print(
+            # logger.debug(
             #     f"\t\tremoving 1 because it has higher auto-correlation with features {corr_features} and lower correlation with demand {corr_y}"
             # )
             return ind1
         if (corr_features[1] >= corr_features[0]) and (corr_y[1] <= corr_y[0]):
-            # print(
+            # logger.debug(
             #     f"\t\tremoving 2 because it has higher auto-correlation with features {corr_features} and lower correlation with demand {corr_y}"
             # )
             return ind2
@@ -114,12 +119,12 @@ class CorrelatedFeatureRemover:
             rowvar=False,
         )
         if abs(corr1[0, 1]) <= abs(corr2[0, 1]):
-            # print(
+            # logger.debug(
             #     f"\t\tremoving 1 because it has lower correlation with residual y {[corr1[0, 1], corr2[0, 1]]}"
             # )
             return ind1
         else:
-            # print(
+            # logger.debug(
             #     f"\t\tremoving 2 because it has lower correlation with residual y {[corr1[0, 1], corr2[0, 1]]}"
             # )
             return ind2
@@ -151,14 +156,14 @@ class CorrelatedFeatureRemover:
         max_rowindex = rowsmax[max_colindex]
         # features are self._config.get_features()[max_colindex] and self._config.get_features()[max_rowindex]
 
-        # print(
+        # logger.debug(
         #     f"\tHighest correlation is between {self._config.get_features()[max_colindex]} and {self._config.get_features()[max_rowindex]} with value {self._correlation_matrix[max_rowindex, max_colindex]}"
         # )
 
         # decide which of the two to remove
         to_remove = self._decide_which_to_remove(ind1=max_colindex, ind2=max_rowindex)
 
-        print(
+        logger.debug(
             f"\tAuto-correlated selector is removing feature {self._config.get_features()[to_remove]}"
         )
 
@@ -178,10 +183,17 @@ class CorrelatedFeatureRemover:
         Returns:
             List of feature names that remain after removing correlated features
         """
+        number_of_features = len(self._config.get_features())
         if self._config.is_full_fit():
-            k = InternalConfig.min_number_of_features_fullTimeFit
+            k = math.ceil(
+                InternalConfig.fullResolution_fraction_of_features_to_keep_rfecv
+                * number_of_features
+            )
         else:
-            k = InternalConfig.min_number_of_features_dayFit
+            k = math.ceil(
+                InternalConfig.daily_fraction_of_features_to_keep_rfecv
+                * number_of_features
+            )
 
         while (len(self._config.get_features()) > max(2, k)) and (
             np.max(self._correlation_matrix.max())

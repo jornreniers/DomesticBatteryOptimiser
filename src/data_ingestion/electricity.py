@@ -1,9 +1,12 @@
 import os
+import logging
 
 import polars as pl
 
 from config.DataConfig import DataConfig
 from config.InternalConfig import InternalConfig
+
+logger = logging.getLogger()
 
 
 def run(fold: str, filenames: list[str]) -> pl.DataFrame:
@@ -23,10 +26,10 @@ def run(fold: str, filenames: list[str]) -> pl.DataFrame:
         try:
             dfs.append(pl.read_csv(os.path.join(fold, filename)))
         except FileNotFoundError:
-            print(f"WARNING cannot find data for {filename}")
+            logger.warning(f"WARNING cannot find data for {filename}")
 
     if len(dfs) == 0:
-        print("WARNING no electricity consumption data found, returning")
+        logger.error("WARNING no electricity consumption data found, returning")
         return pl.DataFrame()
     df = pl.concat(dfs)
 

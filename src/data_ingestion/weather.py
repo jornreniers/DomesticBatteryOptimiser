@@ -1,10 +1,15 @@
 import os
 import calendar
+import logging
 
 import polars as pl
+from typing import cast
+
 from config.DataConfig import DataConfig
 from config.InternalConfig import InternalConfig
 from src.data_ingestion import download_weather_data
+
+logger = logging.getLogger()
 
 
 def _extract_and_transform(fold: str) -> pl.LazyFrame:
@@ -39,7 +44,6 @@ def _extract_and_transform(fold: str) -> pl.LazyFrame:
         for m in range(12):
             mi = f"{(m + 1):02d}"  # string with two digits from 1 to 12
             ndays = calendar.monthrange(y, m + 1)[1]
-            # print(f"Start month {m+1} of {y}")
             for d in range(ndays):
                 di = f"{(d + 1):02d}"
                 # Skip missing data
@@ -98,10 +102,10 @@ def _extract_and_transform(fold: str) -> pl.LazyFrame:
                     dfs.append(_transform(df=dfi))
 
                 except FileNotFoundError:
-                    print(f"Couldn't find the data for {d + 1}/{m + 1}/{y}")
+                    logger.warning(f"Couldn't find the data for {d + 1}/{m + 1}/{y}")
                     number_subsequent_fails = number_subsequent_fails + 1
                     if number_subsequent_fails > 5:
-                        print(
+                        logger.info(
                             "More than 5 subsequent missing data files, assume we have reached the end of the dataset"
                         )
                         break
@@ -152,4 +156,4 @@ def run(fold: str) -> pl.DataFrame:
 
     # sort time stamp
     dfl = dfl.sort(by=InternalConfig.colname_time)
-    return dfl.collect()
+    return cast(pl.DataFrame, dfl.collect())

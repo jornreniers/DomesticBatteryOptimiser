@@ -3,7 +3,7 @@ import os
 import polars as pl
 
 from config.InternalConfig import InternalConfig
-from src.features.add_features import plot_features
+from .plot_consumption_vs_features import plot_consumption_vs_features
 
 
 def run(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -19,7 +19,13 @@ def run(df: pl.LazyFrame) -> pl.LazyFrame:
     df_day = (
         df.group_by(by=InternalConfig.colname_date)
         .agg(
-            *[pl.col(c).first() for c in InternalConfig.all_features],
+            *[
+                pl.col(c).first()
+                for c in (
+                    InternalConfig.features_categorical
+                    + InternalConfig.features_continuous
+                )
+            ],
             pl.col(InternalConfig.colname_consumption_kwh).sum(),
         )
         # Ensure that there is still a column timestamp so no matter whether we
@@ -32,23 +38,17 @@ def run(df: pl.LazyFrame) -> pl.LazyFrame:
         )
     ).sort(by=InternalConfig.colname_time)
 
-    # If we take a daily average, some columns have no meaning any more
-    # eg period index becomes basically summer vs winter time
-    # and temperature becomes the temperature at midnight
-    # Drop those columns to prevent erroneous correlations to be found
-    df_day = df_day.drop(
-        [
-            InternalConfig.colname_temperature_dry,
-            InternalConfig.colname_period_index,
-        ]
-    )
-
     if InternalConfig.plot_level >= 2:
         subfold = InternalConfig.plot_folder + "/features"
         if not (os.path.exists(subfold)):
             os.makedirs(subfold)
         dfp = df_day.collect().to_pandas()
 
-        plot_features(df=dfp, subfold=subfold, figname="all_features_daily_values")
+        plot_consumption_vs_features(
+            df=dfp,
+            subfold=subfold,
+            figname="consumption_vs_features_daily_total",
+            list_of_features=InternalConfig.features_daily_forecast,
+        )
 
     return df_day

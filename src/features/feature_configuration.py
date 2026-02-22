@@ -11,11 +11,29 @@ class FeatureConfiguration:
     We allow public access to the dataframe (so other parts of the code can add columns)
     """
 
-    def __init__(self, df: pl.DataFrame, colname_y_to_fit: str, fullTimeFit: bool):
-        self.df = df
+    def __init__(
+        self,
+        df: pl.DataFrame,
+        colname_y_to_fit: str,
+        fullTimeFit: bool,
+        list_of_features: list[str],
+    ):
+        self.df_orig = df  # keep a copy of the full original dataframe
         self._feature_names = []
         self._y_name = colname_y_to_fit
         self._fullTimeFit = fullTimeFit
+
+        # drop features we don't want to consider
+        # ie those that are are in the list of all features but
+        # not in the features we want to consider here (list_of_features)
+        # and that are present in the dataframe
+        # this keeps columns like consumption and date (which not present in all_features)
+        all_features = set(
+            InternalConfig.features_continuous + InternalConfig.features_categorical
+        )
+        l2 = set(df.columns)
+        l3 = set(list_of_features)
+        self.df = df.drop((all_features - l3) & l2)
 
     def add_feature(self, feat: str):
         if feat in self.df.columns:
